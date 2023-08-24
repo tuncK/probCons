@@ -3,34 +3,35 @@
 /////////////////////////////////////////////////////////////////
 
 #include <cstdlib>
-#include <iostream>
 #include <fstream>
+#include <iostream>
 
 using namespace std;
 
-int main (int argc, char **argv){
-  
-  if (argc == 1 || argc > 3){
+int main(int argc, char **argv) {
+
+  if (argc == 1 || argc > 3) {
     cerr << "Usage: makegnuplot annotscores [refscores]" << endl;
-    exit (1);
+    exit(1);
   }
 
-  ifstream data (argv[1]);
+  ifstream data(argv[1]);
 
-  if (data.fail()){
+  if (data.fail()) {
     cerr << "ERROR: Could not open file " << argv[1] << endl;
-    exit (1);
+    exit(1);
   }
-  
+
   int x, ct = 0;
-  while (data >> x) ct++;
+  while (data >> x)
+    ct++;
   data.close();
-  
-  ofstream out ("temporary_gnuplot_script");
-  
-  if (out.fail()){
+
+  ofstream out("temporary_gnuplot_script");
+
+  if (out.fail()) {
     cerr << "ERROR: Could not create temporary file." << endl;
-    exit (1);
+    exit(1);
   }
 
   out << "set title \"Column Reliability Scores\"" << endl
@@ -39,21 +40,23 @@ int main (int argc, char **argv){
       << "set xr [1:" << ct << "]" << endl
       << "set term postscript enhanced color" << endl
       << "set output \"reliability.ps\"" << endl;
-  
-  if (argc == 3){
+
+  if (argc == 3) {
     out << "set style fill solid 0.5 noborder" << endl
-	<< "plot \"" << argv[2] << "\" title \"actual\" with boxes lt 2, \\" << endl
-	<< "     \"" << argv[1] << "\" title \"predicted\" with histeps lt 1 lw 3" << endl;
-  }
-  else 
-    out << "plot \"" << argv[1] << "\" title \"predicted\" with histeps lt 1 lw 3" << endl;
+        << "plot \"" << argv[2] << "\" title \"actual\" with boxes lt 2, \\"
+        << endl
+        << "     \"" << argv[1]
+        << "\" title \"predicted\" with histeps lt 1 lw 3" << endl;
+  } else
+    out << "plot \"" << argv[1]
+        << "\" title \"predicted\" with histeps lt 1 lw 3" << endl;
 
   out.close();
 
-  if (system ("gnuplot temporary_gnuplot_script") == -1){
+  if (system("gnuplot temporary_gnuplot_script") == -1) {
     cerr << "ERROR: Could not run Gnuplot correctly." << endl;
-    exit (1);
+    exit(1);
   }
-  
-  //system ("rm temporary_gnuplot_script");
+
+  // system ("rm temporary_gnuplot_script");
 }

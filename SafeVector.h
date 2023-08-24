@@ -17,32 +17,29 @@
 // Class derived from the STL std::vector for bounds checking.
 /////////////////////////////////////////////////////////////////
 
-template<class TYPE>
-class SafeVector : public std::vector<TYPE>{
- public:
-
+template <class TYPE> class SafeVector : public std::vector<TYPE> {
+public:
   // miscellaneous constructors
   SafeVector() : std::vector<TYPE>() {}
-  SafeVector (size_t size) : std::vector<TYPE>(size) {}
-  SafeVector (size_t size, const TYPE &value) : std::vector<TYPE>(size, value) {}
-  SafeVector (const SafeVector &source) : std::vector<TYPE>(source) {}
+  SafeVector(size_t size) : std::vector<TYPE>(size) {}
+  SafeVector(size_t size, const TYPE &value) : std::vector<TYPE>(size, value) {}
+  SafeVector(const SafeVector &source) : std::vector<TYPE>(source) {}
 
 #ifdef ENABLE_CHECKS
 
   // [] array bounds checking
-  TYPE &operator[](int index){
-    assert (index >= 0 && index < (int) size());
-    return std::vector<TYPE>::operator[] ((size_t) index);
+  TYPE &operator[](int index) {
+    assert(index >= 0 && index < (int)size());
+    return std::vector<TYPE>::operator[]((size_t)index);
   }
 
   // [] const array bounds checking
-  const TYPE &operator[] (int index) const {
-    assert (index >= 0 && index < (int) size());
-    return std::vector<TYPE>::operator[] ((size_t) index) ;
+  const TYPE &operator[](int index) const {
+    assert(index >= 0 && index < (int)size());
+    return std::vector<TYPE>::operator[]((size_t)index);
   }
 
 #endif
-
 };
 
 // some commonly used vector types

@@ -7,16 +7,16 @@
 #ifndef MULTISEQUENCE_H
 #define MULTISEQUENCE_H
 
-#include <cctype>
-#include <string>
-#include <fstream>
-#include <iostream>
-#include <sstream>
-#include <algorithm>
-#include <set>
+#include "FileBuffer.h"
 #include "SafeVector.h"
 #include "Sequence.h"
-#include "FileBuffer.h"
+#include <algorithm>
+#include <cctype>
+#include <fstream>
+#include <iostream>
+#include <set>
+#include <sstream>
+#include <string>
 
 /////////////////////////////////////////////////////////////////
 // MultiSequence
@@ -28,15 +28,14 @@ class MultiSequence {
 
   SafeVector<Sequence *> *sequences;
 
- public:
-
+public:
   /////////////////////////////////////////////////////////////////
   // MultiSequence::MultiSequence()
   //
   // Default constructor.
   /////////////////////////////////////////////////////////////////
 
-  MultiSequence () : sequences (NULL) {}
+  MultiSequence() : sequences(NULL) {}
 
   /////////////////////////////////////////////////////////////////
   // MultiSequence::MultiSequence()
@@ -44,9 +43,7 @@ class MultiSequence {
   // Constructor.  Load MFA from a FileBuffer object.
   /////////////////////////////////////////////////////////////////
 
-  MultiSequence (FileBuffer &infile) : sequences (NULL) {
-    LoadMFA (infile);
-  }
+  MultiSequence(FileBuffer &infile) : sequences(NULL) { LoadMFA(infile); }
 
   /////////////////////////////////////////////////////////////////
   // MultiSequence::MultiSequence()
@@ -54,9 +51,7 @@ class MultiSequence {
   // Constructor.  Load MFA from a filename.
   /////////////////////////////////////////////////////////////////
 
-  MultiSequence (const string &filename) : sequences (NULL){
-    LoadMFA (filename);
-  }
+  MultiSequence(const string &filename) : sequences(NULL) { LoadMFA(filename); }
 
   /////////////////////////////////////////////////////////////////
   // MultiSequence::~MultiSequence()
@@ -65,14 +60,15 @@ class MultiSequence {
   // multiple alignment.
   /////////////////////////////////////////////////////////////////
 
-  ~MultiSequence(){
+  ~MultiSequence() {
 
     // if sequences allocated
-    if (sequences){
+    if (sequences) {
 
       // free all sequences
-      for (SafeVector<Sequence *>::iterator iter = sequences->begin(); iter != sequences->end(); ++iter){
-        assert (*iter);
+      for (SafeVector<Sequence *>::iterator iter = sequences->begin();
+           iter != sequences->end(); ++iter) {
+        assert(*iter);
         delete *iter;
         *iter = NULL;
       }
@@ -89,18 +85,19 @@ class MultiSequence {
   // Load MFA from a filename.
   /////////////////////////////////////////////////////////////////
 
-  void LoadMFA (const string &filename, bool stripGaps = false){
+  void LoadMFA(const string &filename, bool stripGaps = false) {
 
     // try opening file
-    FileBuffer infile (filename.c_str());
+    FileBuffer infile(filename.c_str());
 
-    if (infile.fail()){
-      cerr << "ERROR: Could not open file '" << filename << "' for reading." << endl;
-      exit (1);
+    if (infile.fail()) {
+      cerr << "ERROR: Could not open file '" << filename << "' for reading."
+           << endl;
+      exit(1);
     }
 
     // if successful, then load using other LoadMFA() routine
-    LoadMFA (infile, stripGaps);
+    LoadMFA(infile, stripGaps);
 
     infile.close();
   }
@@ -111,7 +108,7 @@ class MultiSequence {
   // Load MSF from a FileBuffer object.
   /////////////////////////////////////////////////////////////////
 
-  void ParseMSF (FileBuffer &infile, string header, bool stripGaps = false){
+  void ParseMSF(FileBuffer &infile, string header, bool stripGaps = false) {
 
     SafeVector<SafeVector<char> *> seqData;
     SafeVector<string> seqNames;
@@ -123,95 +120,105 @@ class MultiSequence {
     bool clustalW = false;
 
     // read until data starts
-    while (!infile.eof() && header.find ("..", 0) == string::npos){
-      if (header.find ("CLUSTAL", 0) == 0 || header.find ("PROBCONS", 0) == 0){
-	clustalW = true;
-	break;
+    while (!infile.eof() && header.find("..", 0) == string::npos) {
+      if (header.find("CLUSTAL", 0) == 0 || header.find("PROBCONS", 0) == 0) {
+        clustalW = true;
+        break;
       }
-      infile.GetLine (header);
-      if (header.find ("//", 0) != string::npos){
+      infile.GetLine(header);
+      if (header.find("//", 0) != string::npos) {
         missingHeader = true;
         break;
       }
     }
 
     // read until end-of-file
-    while (valid){
-      infile.GetLine (header);
-      if (infile.eof()) break;
+    while (valid) {
+      infile.GetLine(header);
+      if (infile.eof())
+        break;
 
       string word;
       in.clear();
       in.str(header);
 
       // check if there's anything on this line
-      if (in >> word){
+      if (in >> word) {
 
-	// clustalw name parsing
-	if (clustalW){
-	  if (!isspace(header[0]) && find (seqNames.begin(), seqNames.end(), word) == seqNames.end()){
-	    seqNames.push_back (word);
-	    seqData.push_back (new SafeVector<char>());
-	    seqLengths.push_back (0);
-	    seqData[(int) seqData.size() - 1]->push_back ('@');
-	  }	  
-	}
+        // clustalw name parsing
+        if (clustalW) {
+          if (!isspace(header[0]) &&
+              find(seqNames.begin(), seqNames.end(), word) == seqNames.end()) {
+            seqNames.push_back(word);
+            seqData.push_back(new SafeVector<char>());
+            seqLengths.push_back(0);
+            seqData[(int)seqData.size() - 1]->push_back('@');
+          }
+        }
 
         // look for new sequence label
-        if (word == string ("Name:")){
-          if (in >> word){
-            seqNames.push_back (word);
-            seqData.push_back (new SafeVector<char>());
-            seqLengths.push_back (0);
-            seqData[(int) seqData.size() - 1]->push_back ('@');
-          }
-          else
+        if (word == string("Name:")) {
+          if (in >> word) {
+            seqNames.push_back(word);
+            seqData.push_back(new SafeVector<char>());
+            seqLengths.push_back(0);
+            seqData[(int)seqData.size() - 1]->push_back('@');
+          } else
             valid = false;
         }
 
         // check if this is sequence data
-        else if (find (seqNames.begin(), seqNames.end(), word) != seqNames.end()){
-          int index = find (seqNames.begin(), seqNames.end(), word) - seqNames.begin();
+        else if (find(seqNames.begin(), seqNames.end(), word) !=
+                 seqNames.end()) {
+          int index =
+              find(seqNames.begin(), seqNames.end(), word) - seqNames.begin();
 
           // read all remaining characters on the line
           char ch;
-          while (in >> ch){
-            if (isspace (ch)) continue;
-            if (ch >= 'a' && ch <= 'z') ch = ch - 'a' + 'A';
-            if (ch == '.') ch = '-';
-	    if (stripGaps && ch == '-') continue;
-            if (!((ch >= 'A' && ch <= 'Z') || ch == '*' || ch == '-')){
+          while (in >> ch) {
+            if (isspace(ch))
+              continue;
+            if (ch >= 'a' && ch <= 'z')
+              ch = ch - 'a' + 'A';
+            if (ch == '.')
+              ch = '-';
+            if (stripGaps && ch == '-')
+              continue;
+            if (!((ch >= 'A' && ch <= 'Z') || ch == '*' || ch == '-')) {
               cerr << "ERROR: Unknown character encountered: " << ch << endl;
-              exit (1);
+              exit(1);
             }
 
             // everything's ok so far, so just store this character.
-            seqData[index]->push_back (ch);
+            seqData[index]->push_back(ch);
             seqLengths[index]++;
           }
-        }
-        else if (missingHeader){
-          seqNames.push_back (word);
-          seqData.push_back (new SafeVector<char>());
-          seqLengths.push_back (0);
-          seqData[(int) seqData.size() - 1]->push_back ('@');
+        } else if (missingHeader) {
+          seqNames.push_back(word);
+          seqData.push_back(new SafeVector<char>());
+          seqLengths.push_back(0);
+          seqData[(int)seqData.size() - 1]->push_back('@');
 
-          int index = (int) seqNames.size() - 1;
+          int index = (int)seqNames.size() - 1;
 
           // read all remaining characters on the line
           char ch;
-          while (in >> ch){
-            if (isspace (ch)) continue;
-            if (ch >= 'a' && ch <= 'z') ch = ch - 'a' + 'A';
-            if (ch == '.') ch = '-';
-	    if (stripGaps && ch == '-') continue;
-            if (!((ch >= 'A' && ch <= 'Z') || ch == '*' || ch == '-')){
+          while (in >> ch) {
+            if (isspace(ch))
+              continue;
+            if (ch >= 'a' && ch <= 'z')
+              ch = ch - 'a' + 'A';
+            if (ch == '.')
+              ch = '-';
+            if (stripGaps && ch == '-')
+              continue;
+            if (!((ch >= 'A' && ch <= 'Z') || ch == '*' || ch == '-')) {
               cerr << "ERROR: Unknown character encountered: " << ch << endl;
-              exit (1);
+              exit(1);
             }
 
             // everything's ok so far, so just store this character.
-            seqData[index]->push_back (ch);
+            seqData[index]->push_back(ch);
             seqLengths[index]++;
           }
         }
@@ -219,20 +226,21 @@ class MultiSequence {
     }
 
     // check for errors
-    if (seqNames.size() == 0){
+    if (seqNames.size() == 0) {
       cerr << "ERROR: No sequences read!" << endl;
-      exit (1);
+      exit(1);
     }
 
-    assert (!sequences);
+    assert(!sequences);
     sequences = new SafeVector<Sequence *>;
-    for (int i = 0; i < (int) seqNames.size(); i++){
-      if (seqLengths[i] == 0){
+    for (int i = 0; i < (int)seqNames.size(); i++) {
+      if (seqLengths[i] == 0) {
         cerr << "ERROR: Sequence of zero length!" << endl;
-        exit (1);
+        exit(1);
       }
-      Sequence *seq = new Sequence (seqData[i], seqNames[i], seqLengths[i], i, i);
-      sequences->push_back (seq);
+      Sequence *seq =
+          new Sequence(seqData[i], seqNames[i], seqLengths[i], i, i);
+      sequences->push_back(seq);
     }
   }
 
@@ -242,32 +250,32 @@ class MultiSequence {
   // Load MFA from a FileBuffer object.
   /////////////////////////////////////////////////////////////////
 
-  void LoadMFA (FileBuffer &infile, bool stripGaps = false){
+  void LoadMFA(FileBuffer &infile, bool stripGaps = false) {
 
     // check to make sure that file reading is ok
-    if (infile.fail()){
+    if (infile.fail()) {
       cerr << "ERROR: Error reading file." << endl;
-      exit (1);
+      exit(1);
     }
 
     // read all sequences
-    while (true){
+    while (true) {
 
       // get the sequence label as being the current # of sequences
       // NOTE: sequence labels here are zero-based
       int index = (!sequences) ? 0 : sequences->size();
 
       // read the sequence
-      Sequence *seq = new Sequence (infile, stripGaps);
-      if (seq->Fail()){
+      Sequence *seq = new Sequence(infile, stripGaps);
+      if (seq->Fail()) {
 
         // check if alternative file format (i.e. not MFA)
-        if (index == 0){
+        if (index == 0) {
           string header = seq->GetHeader();
-          if (header.length() > 0 && header[0] != '>'){
+          if (header.length() > 0 && header[0] != '>') {
 
             // try MSF format
-            ParseMSF (infile, header);
+            ParseMSF(infile, header);
             break;
           }
         }
@@ -275,17 +283,18 @@ class MultiSequence {
         delete seq;
         break;
       }
-      seq->SetLabel (index);
+      seq->SetLabel(index);
 
       // add the sequence to the list of current sequences
-      if (!sequences) sequences = new SafeVector<Sequence *>;
-      sequences->push_back (seq);
+      if (!sequences)
+        sequences = new SafeVector<Sequence *>;
+      sequences->push_back(seq);
     }
 
     // make sure at least one sequence was read
-    if (!sequences){
+    if (!sequences) {
       cerr << "ERROR: No sequences read." << endl;
-      exit (1);
+      exit(1);
     }
   }
 
@@ -295,13 +304,14 @@ class MultiSequence {
   // Add another sequence to an existing sequence list
   /////////////////////////////////////////////////////////////////
 
-  void AddSequence (Sequence *sequence){
-    assert (sequence);
-    assert (!sequence->Fail());
+  void AddSequence(Sequence *sequence) {
+    assert(sequence);
+    assert(!sequence->Fail());
 
     // add sequence
-    if (!sequences) sequences = new SafeVector<Sequence *>;
-    sequences->push_back (sequence);
+    if (!sequences)
+      sequences = new SafeVector<Sequence *>;
+    sequences->push_back(sequence);
   }
 
   /////////////////////////////////////////////////////////////////
@@ -310,13 +320,13 @@ class MultiSequence {
   // Remove a sequence from the MultiSequence
   /////////////////////////////////////////////////////////////////
 
-  void RemoveSequence (int index){
-    assert (sequences);
+  void RemoveSequence(int index) {
+    assert(sequences);
 
-    assert (index >= 0 && index < (int) sequences->size());
+    assert(index >= 0 && index < (int)sequences->size());
     delete (*sequences)[index];
 
-    sequences->erase (sequences->begin() + index);
+    sequences->erase(sequences->begin() + index);
   }
 
   /////////////////////////////////////////////////////////////////
@@ -329,12 +339,15 @@ class MultiSequence {
   // be used instead.
   /////////////////////////////////////////////////////////////////
 
-  void WriteMFA (ostream &outfile, int numColumns = 60, bool useIndices = false){
-    if (!sequences) return;
+  void WriteMFA(ostream &outfile, int numColumns = 60,
+                bool useIndices = false) {
+    if (!sequences)
+      return;
 
     // loop through all sequences and write them out
-    for (SafeVector<Sequence *>::iterator iter = sequences->begin(); iter != sequences->end(); ++iter){
-      (*iter)->WriteMFA (outfile, numColumns, useIndices);
+    for (SafeVector<Sequence *>::iterator iter = sequences->begin();
+         iter != sequences->end(); ++iter) {
+      (*iter)->WriteMFA(outfile, numColumns, useIndices);
     }
   }
 
@@ -344,136 +357,122 @@ class MultiSequence {
   // Return CLUSTALW annotation for column.
   /////////////////////////////////////////////////////////////////
 
-  char GetAnnotationChar (SafeVector<char> &column){
-    SafeVector<int> counts (256, 0);
-    int allChars = (int) column.size();
-    
-    for (int i = 0; i < allChars; i++){
-      counts[(unsigned char) toupper(column[i])]++;
+  char GetAnnotationChar(SafeVector<char> &column) {
+    SafeVector<int> counts(256, 0);
+    int allChars = (int)column.size();
+
+    for (int i = 0; i < allChars; i++) {
+      counts[(unsigned char)toupper(column[i])]++;
     }
-    
-    allChars -= counts[(unsigned char) '-'];
-    if (allChars == 1) return ' ';
-    
-    for (int i = 0; i < 256; i++) if ((char) i != '-' && counts[i] == allChars) return '*';
-    
-    if (counts[(unsigned char) 'S'] + 
-	counts[(unsigned char) 'T'] + 
-	counts[(unsigned char) 'A'] == allChars) 
-      return ':';
-    
-    if (counts[(unsigned char) 'N'] + 
-	counts[(unsigned char) 'E'] + 
-	counts[(unsigned char) 'Q'] +
-	counts[(unsigned char) 'K'] == allChars) 
+
+    allChars -= counts[(unsigned char)'-'];
+    if (allChars == 1)
+      return ' ';
+
+    for (int i = 0; i < 256; i++)
+      if ((char)i != '-' && counts[i] == allChars)
+        return '*';
+
+    if (counts[(unsigned char)'S'] + counts[(unsigned char)'T'] +
+            counts[(unsigned char)'A'] ==
+        allChars)
       return ':';
 
-    if (counts[(unsigned char) 'N'] + 
-	counts[(unsigned char) 'H'] + 
-	counts[(unsigned char) 'Q'] +
-	counts[(unsigned char) 'K'] == allChars) 
+    if (counts[(unsigned char)'N'] + counts[(unsigned char)'E'] +
+            counts[(unsigned char)'Q'] + counts[(unsigned char)'K'] ==
+        allChars)
       return ':';
 
-    if (counts[(unsigned char) 'N'] + 
-	counts[(unsigned char) 'D'] + 
-	counts[(unsigned char) 'E'] +
-	counts[(unsigned char) 'Q'] == allChars) 
+    if (counts[(unsigned char)'N'] + counts[(unsigned char)'H'] +
+            counts[(unsigned char)'Q'] + counts[(unsigned char)'K'] ==
+        allChars)
       return ':';
 
-    if (counts[(unsigned char) 'Q'] + 
-	counts[(unsigned char) 'H'] + 
-	counts[(unsigned char) 'R'] +
-	counts[(unsigned char) 'K'] == allChars) 
+    if (counts[(unsigned char)'N'] + counts[(unsigned char)'D'] +
+            counts[(unsigned char)'E'] + counts[(unsigned char)'Q'] ==
+        allChars)
       return ':';
 
-    if (counts[(unsigned char) 'M'] + 
-	counts[(unsigned char) 'I'] + 
-	counts[(unsigned char) 'L'] +
-	counts[(unsigned char) 'V'] == allChars) 
+    if (counts[(unsigned char)'Q'] + counts[(unsigned char)'H'] +
+            counts[(unsigned char)'R'] + counts[(unsigned char)'K'] ==
+        allChars)
       return ':';
 
-    if (counts[(unsigned char) 'M'] + 
-	counts[(unsigned char) 'I'] + 
-	counts[(unsigned char) 'L'] +
-	counts[(unsigned char) 'F'] == allChars) 
+    if (counts[(unsigned char)'M'] + counts[(unsigned char)'I'] +
+            counts[(unsigned char)'L'] + counts[(unsigned char)'V'] ==
+        allChars)
       return ':';
 
-    if (counts[(unsigned char) 'H'] + 
-	counts[(unsigned char) 'Y'] == allChars) 
+    if (counts[(unsigned char)'M'] + counts[(unsigned char)'I'] +
+            counts[(unsigned char)'L'] + counts[(unsigned char)'F'] ==
+        allChars)
       return ':';
 
-    if (counts[(unsigned char) 'F'] + 
-	counts[(unsigned char) 'Y'] + 
-	counts[(unsigned char) 'W'] == allChars) 
+    if (counts[(unsigned char)'H'] + counts[(unsigned char)'Y'] == allChars)
       return ':';
 
-    if (counts[(unsigned char) 'C'] + 
-	counts[(unsigned char) 'S'] + 
-	counts[(unsigned char) 'A'] == allChars) 
+    if (counts[(unsigned char)'F'] + counts[(unsigned char)'Y'] +
+            counts[(unsigned char)'W'] ==
+        allChars)
+      return ':';
+
+    if (counts[(unsigned char)'C'] + counts[(unsigned char)'S'] +
+            counts[(unsigned char)'A'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'A'] + 
-	counts[(unsigned char) 'T'] + 
-	counts[(unsigned char) 'V'] == allChars) 
+    if (counts[(unsigned char)'A'] + counts[(unsigned char)'T'] +
+            counts[(unsigned char)'V'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'S'] + 
-	counts[(unsigned char) 'A'] + 
-	counts[(unsigned char) 'G'] == allChars) 
+    if (counts[(unsigned char)'S'] + counts[(unsigned char)'A'] +
+            counts[(unsigned char)'G'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'S'] + 
-	counts[(unsigned char) 'T'] + 
-	counts[(unsigned char) 'N'] + 
-	counts[(unsigned char) 'K'] == allChars) 
+    if (counts[(unsigned char)'S'] + counts[(unsigned char)'T'] +
+            counts[(unsigned char)'N'] + counts[(unsigned char)'K'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'S'] + 
-	counts[(unsigned char) 'T'] + 
-	counts[(unsigned char) 'P'] + 
-	counts[(unsigned char) 'A'] == allChars) 
+    if (counts[(unsigned char)'S'] + counts[(unsigned char)'T'] +
+            counts[(unsigned char)'P'] + counts[(unsigned char)'A'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'S'] + 
-	counts[(unsigned char) 'G'] + 
-	counts[(unsigned char) 'N'] + 
-	counts[(unsigned char) 'D'] == allChars) 
+    if (counts[(unsigned char)'S'] + counts[(unsigned char)'G'] +
+            counts[(unsigned char)'N'] + counts[(unsigned char)'D'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'S'] + 
-	counts[(unsigned char) 'N'] + 
-	counts[(unsigned char) 'D'] + 
-	counts[(unsigned char) 'E'] + 
-	counts[(unsigned char) 'Q'] + 
-	counts[(unsigned char) 'K'] == allChars) 
+    if (counts[(unsigned char)'S'] + counts[(unsigned char)'N'] +
+            counts[(unsigned char)'D'] + counts[(unsigned char)'E'] +
+            counts[(unsigned char)'Q'] + counts[(unsigned char)'K'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'N'] + 
-	counts[(unsigned char) 'D'] + 
-	counts[(unsigned char) 'E'] + 
-	counts[(unsigned char) 'Q'] + 
-	counts[(unsigned char) 'H'] + 
-	counts[(unsigned char) 'K'] == allChars) 
+    if (counts[(unsigned char)'N'] + counts[(unsigned char)'D'] +
+            counts[(unsigned char)'E'] + counts[(unsigned char)'Q'] +
+            counts[(unsigned char)'H'] + counts[(unsigned char)'K'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'N'] + 
-	counts[(unsigned char) 'E'] + 
-	counts[(unsigned char) 'H'] + 
-	counts[(unsigned char) 'Q'] + 
-	counts[(unsigned char) 'R'] + 
-	counts[(unsigned char) 'K'] == allChars) 
+    if (counts[(unsigned char)'N'] + counts[(unsigned char)'E'] +
+            counts[(unsigned char)'H'] + counts[(unsigned char)'Q'] +
+            counts[(unsigned char)'R'] + counts[(unsigned char)'K'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'F'] + 
-	counts[(unsigned char) 'V'] + 
-	counts[(unsigned char) 'L'] + 
-	counts[(unsigned char) 'I'] + 
-	counts[(unsigned char) 'M'] == allChars) 
+    if (counts[(unsigned char)'F'] + counts[(unsigned char)'V'] +
+            counts[(unsigned char)'L'] + counts[(unsigned char)'I'] +
+            counts[(unsigned char)'M'] ==
+        allChars)
       return '.';
 
-    if (counts[(unsigned char) 'H'] + 
-	counts[(unsigned char) 'F'] + 
-	counts[(unsigned char) 'Y'] == allChars) 
+    if (counts[(unsigned char)'H'] + counts[(unsigned char)'F'] +
+            counts[(unsigned char)'Y'] ==
+        allChars)
       return '.';
 
     return ' ';
@@ -483,65 +482,71 @@ class MultiSequence {
   // MultiSequence::WriteALN()
   //
   // Write ALN to the outfile.  Allows the user to specify the
-  // number of columns for the output.  
+  // number of columns for the output.
   /////////////////////////////////////////////////////////////////
 
-  void WriteALN (ostream &outfile, int numColumns = 60){
-    if (!sequences) return;
+  void WriteALN(ostream &outfile, int numColumns = 60) {
+    if (!sequences)
+      return;
 
-    outfile << "PROBCONS version " << VERSION << " multiple sequence alignment" << endl;
+    outfile << "PROBCONS version " << VERSION << " multiple sequence alignment"
+            << endl;
 
     int longestComment = 0;
-    SafeVector<SafeVector<char>::iterator> ptrs (GetNumSequences());
-    SafeVector<int> lengths (GetNumSequences());
-    for (int i = 0; i < GetNumSequences(); i++){
-      ptrs[i] = GetSequence (i)->GetDataPtr();
-      lengths[i] = GetSequence (i)->GetLength();
-      longestComment = max (longestComment, (int) GetSequence(i)->GetName().length());
+    SafeVector<SafeVector<char>::iterator> ptrs(GetNumSequences());
+    SafeVector<int> lengths(GetNumSequences());
+    for (int i = 0; i < GetNumSequences(); i++) {
+      ptrs[i] = GetSequence(i)->GetDataPtr();
+      lengths[i] = GetSequence(i)->GetLength();
+      longestComment =
+          max(longestComment, (int)GetSequence(i)->GetName().length());
     }
     longestComment += 4;
 
-    int writtenChars = 0;    
+    int writtenChars = 0;
     bool allDone = false;
 
-    while (!allDone){
+    while (!allDone) {
       outfile << endl;
       allDone = true;
 
       // loop through all sequences and write them out
-      for (int i = 0; i < GetNumSequences(); i++){
+      for (int i = 0; i < GetNumSequences(); i++) {
 
-	if (writtenChars < lengths[i]){
-	  outfile << GetSequence(i)->GetName();
-	  for (int j = 0; j < longestComment - (int) GetSequence(i)->GetName().length(); j++)
-	    outfile << ' ';
+        if (writtenChars < lengths[i]) {
+          outfile << GetSequence(i)->GetName();
+          for (int j = 0;
+               j < longestComment - (int)GetSequence(i)->GetName().length();
+               j++)
+            outfile << ' ';
 
-	  for (int j = 0; j < numColumns; j++){
-	    if (writtenChars + j < lengths[i])
-	      outfile << ptrs[i][writtenChars + j + 1];
-	    else
-	      break;
-	  }
-	  
-	  outfile << endl;
-	  
-	  if (writtenChars + numColumns < lengths[i]) allDone = false;
-	}
+          for (int j = 0; j < numColumns; j++) {
+            if (writtenChars + j < lengths[i])
+              outfile << ptrs[i][writtenChars + j + 1];
+            else
+              break;
+          }
+
+          outfile << endl;
+
+          if (writtenChars + numColumns < lengths[i])
+            allDone = false;
+        }
       }
 
       // write annotation line
       for (int j = 0; j < longestComment; j++)
-	outfile << ' ';
+        outfile << ' ';
 
-      for (int j = 0; j < numColumns; j++){
-	SafeVector<char> column;
+      for (int j = 0; j < numColumns; j++) {
+        SafeVector<char> column;
 
-	for (int i = 0; i < GetNumSequences(); i++)
-	  if (writtenChars + j < lengths[i])
-	    column.push_back (ptrs[i][writtenChars + j + 1]);
-	
-	if (column.size() > 0)
-	  outfile << GetAnnotationChar (column);	
+        for (int i = 0; i < GetNumSequences(); i++)
+          if (writtenChars + j < lengths[i])
+            column.push_back(ptrs[i][writtenChars + j + 1]);
+
+        if (column.size() > 0)
+          outfile << GetAnnotationChar(column);
       }
 
       outfile << endl;
@@ -555,9 +560,9 @@ class MultiSequence {
   // Retrieve a sequence from the MultiSequence object.
   /////////////////////////////////////////////////////////////////
 
-  Sequence* GetSequence (int i){
-    assert (sequences);
-    assert (0 <= i && i < (int) sequences->size());
+  Sequence *GetSequence(int i) {
+    assert(sequences);
+    assert(0 <= i && i < (int)sequences->size());
 
     return (*sequences)[i];
   }
@@ -569,9 +574,9 @@ class MultiSequence {
   // (const version).
   /////////////////////////////////////////////////////////////////
 
-  const Sequence* GetSequence (int i) const {
-    assert (sequences);
-    assert (0 <= i && i < (int) sequences->size());
+  const Sequence *GetSequence(int i) const {
+    assert(sequences);
+    assert(0 <= i && i < (int)sequences->size());
 
     return (*sequences)[i];
   }
@@ -582,9 +587,10 @@ class MultiSequence {
   // Returns the number of sequences in the MultiSequence.
   /////////////////////////////////////////////////////////////////
 
-  int GetNumSequences () const {
-    if (!sequences) return 0;
-    return (int) sequences->size();
+  int GetNumSequences() const {
+    if (!sequences)
+      return 0;
+    return (int)sequences->size();
   }
 
   /////////////////////////////////////////////////////////////////
@@ -594,14 +600,14 @@ class MultiSequence {
   // in ascending order.
   /////////////////////////////////////////////////////////////////
 
-  void SortByHeader () {
-    assert (sequences);
+  void SortByHeader() {
+    assert(sequences);
 
     // a quick and easy O(n^2) sort
-    for (int i = 0; i < (int) sequences->size()-1; i++){
-      for (int j = i+1; j < (int) sequences->size(); j++){
+    for (int i = 0; i < (int)sequences->size() - 1; i++) {
+      for (int j = i + 1; j < (int)sequences->size(); j++) {
         if ((*sequences)[i]->GetHeader() > (*sequences)[j]->GetHeader())
-          swap ((*sequences)[i], (*sequences)[j]);
+          swap((*sequences)[i], (*sequences)[j]);
       }
     }
   }
@@ -613,14 +619,14 @@ class MultiSequence {
   // in ascending order.
   /////////////////////////////////////////////////////////////////
 
-  void SortByLabel () {
-    assert (sequences);
+  void SortByLabel() {
+    assert(sequences);
 
     // a quick and easy O(n^2) sort
-    for (int i = 0; i < (int) sequences->size()-1; i++){
-      for (int j = i+1; j < (int) sequences->size(); j++){
+    for (int i = 0; i < (int)sequences->size() - 1; i++) {
+      for (int j = i + 1; j < (int)sequences->size(); j++) {
         if ((*sequences)[i]->GetSortLabel() > (*sequences)[j]->GetSortLabel())
-          swap ((*sequences)[i], (*sequences)[j]);
+          swap((*sequences)[i], (*sequences)[j]);
       }
     }
   }
@@ -631,11 +637,11 @@ class MultiSequence {
   // Relabels sequences so as to preserve the current ordering.
   /////////////////////////////////////////////////////////////////
 
-  void SaveOrdering () {
-    assert (sequences);
-    
-    for (int i = 0; i < (int) sequences->size(); i++)
-      (*sequences)[i]->SetSortLabel (i);
+  void SaveOrdering() {
+    assert(sequences);
+
+    for (int i = 0; i < (int)sequences->size(); i++)
+      (*sequences)[i]->SetSortLabel(i);
   }
 
   /////////////////////////////////////////////////////////////////
@@ -648,59 +654,64 @@ class MultiSequence {
   // object.
   /////////////////////////////////////////////////////////////////
 
-  MultiSequence *Project (const set<int> &indices){
-    SafeVector<SafeVector<char>::iterator> oldPtrs (indices.size());
-    SafeVector<SafeVector<char> *> newPtrs (indices.size());
+  MultiSequence *Project(const set<int> &indices) {
+    SafeVector<SafeVector<char>::iterator> oldPtrs(indices.size());
+    SafeVector<SafeVector<char> *> newPtrs(indices.size());
 
-    assert (indices.size() != 0);
+    assert(indices.size() != 0);
 
     // grab old data
     int i = 0;
-    for (set<int>::const_iterator iter = indices.begin(); iter != indices.end(); ++iter){
-      oldPtrs[i++] = GetSequence (*iter)->GetDataPtr();
+    for (set<int>::const_iterator iter = indices.begin(); iter != indices.end();
+         ++iter) {
+      oldPtrs[i++] = GetSequence(*iter)->GetDataPtr();
     }
 
     // compute new length
-    int oldLength = GetSequence (*indices.begin())->GetLength();
+    int oldLength = GetSequence(*indices.begin())->GetLength();
     int newLength = 0;
-    for (i = 1; i <= oldLength; i++){
+    for (i = 1; i <= oldLength; i++) {
 
       // check to see if there is a gap in every sequence of the set
       bool found = false;
-      for (int j = 0; !found && j < (int) indices.size(); j++)
+      for (int j = 0; !found && j < (int)indices.size(); j++)
         found = (oldPtrs[j][i] != '-');
 
       // if not, then this column counts towards the sequence length
-      if (found) newLength++;
+      if (found)
+        newLength++;
     }
 
     // build new alignments
-    for (i = 0; i < (int) indices.size(); i++){
-      newPtrs[i] = new SafeVector<char>(); assert (newPtrs[i]);
-      newPtrs[i]->push_back ('@');
+    for (i = 0; i < (int)indices.size(); i++) {
+      newPtrs[i] = new SafeVector<char>();
+      assert(newPtrs[i]);
+      newPtrs[i]->push_back('@');
     }
 
     // add all needed columns
-    for (i = 1; i <= oldLength; i++){
+    for (i = 1; i <= oldLength; i++) {
 
       // make sure column is not gapped in all sequences in the set
       bool found = false;
-      for (int j = 0; !found && j < (int) indices.size(); j++)
+      for (int j = 0; !found && j < (int)indices.size(); j++)
         found = (oldPtrs[j][i] != '-');
 
       // if not, then add it
-      if (found){
-        for (int j = 0; j < (int) indices.size(); j++)
-          newPtrs[j]->push_back (oldPtrs[j][i]);
+      if (found) {
+        for (int j = 0; j < (int)indices.size(); j++)
+          newPtrs[j]->push_back(oldPtrs[j][i]);
       }
     }
 
     // wrap sequences in MultiSequence object
     MultiSequence *ret = new MultiSequence();
     i = 0;
-    for (set<int>::const_iterator iter = indices.begin(); iter != indices.end(); ++iter){
-      ret->AddSequence (new Sequence (newPtrs[i++], GetSequence (*iter)->GetHeader(), newLength,
-                                      GetSequence (*iter)->GetSortLabel(), GetSequence (*iter)->GetLabel()));
+    for (set<int>::const_iterator iter = indices.begin(); iter != indices.end();
+         ++iter) {
+      ret->AddSequence(new Sequence(
+          newPtrs[i++], GetSequence(*iter)->GetHeader(), newLength,
+          GetSequence(*iter)->GetSortLabel(), GetSequence(*iter)->GetLabel()));
     }
 
     return ret;

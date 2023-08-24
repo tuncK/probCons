@@ -2,23 +2,22 @@
 // Main.cc
 /////////////////////////////////////////////////////////////////
 
-#include "SafeVector.h"
-#include "MultiSequence.h"
 #include "Defaults.h"
-#include "ScoreType.h"
-#include "ProbabilisticModel.h"
 #include "EvolutionaryTree.h"
+#include "MultiSequence.h"
+#include "ProbabilisticModel.h"
+#include "SafeVector.h"
+#include "ScoreType.h"
 #include "SparseMatrix.h"
-#include <string>
+#include <algorithm>
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <list>
 #include <set>
-#include <algorithm>
-#include <cstdio>
-#include <cstdlib>
-#include <cerrno>
-#include <iomanip>
+#include <string>
 
 string matrixFilename = "";
 string parametersInputFilename = "";
@@ -32,9 +31,9 @@ int numIterativeRefinementReps = 100;
 
 float gapOpenPenalty = 0;
 float gapContinuePenalty = 0;
-VF initDistrib (NumMatrixTypes);
-VF gapOpen (2*NumInsertStates);
-VF gapExtend (2*NumInsertStates);
+VF initDistrib(NumMatrixTypes);
+VF gapOpen(2 * NumInsertStates);
+VF gapExtend(2 * NumInsertStates);
 SafeVector<char> alphabet;
 VVF emitPairs;
 VF emitSingle;
@@ -51,22 +50,29 @@ const int MAX_ITERATIVE_REFINEMENT_REPS = 1000;
 /////////////////////////////////////////////////////////////////
 
 void PrintHeading();
-void PrintParameters (const char *message, const VF &initDistrib, const VF &gapOpen,
-                      const VF &gapExtend, const char *filename);
-MultiSequence *DoAlign (MultiSequence *sequence, const ProbabilisticModel &model);
-SafeVector<string> ParseParams (int argc, char **argv);
-void ReadParameters ();
-MultiSequence *ComputeFinalAlignment (const TreeNode *tree, MultiSequence *sequences,
-                                      const SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices,
-                                      const ProbabilisticModel &model);
-MultiSequence *AlignAlignments (MultiSequence *align1, MultiSequence *align2,
-                                const SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices,
-                                const ProbabilisticModel &model);
-void DoRelaxation (MultiSequence *sequences, SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices);
-void Relax (SparseMatrix *matXZ, SparseMatrix *matZY, VF &posterior);
-void DoIterativeRefinement (const SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices,
-                            const ProbabilisticModel &model, MultiSequence* &alignment);
-//float ScoreAlignment (MultiSequence *alignment, MultiSequence *sequences, SparseMatrix **sparseMatrices, const int numSeqs);
+void PrintParameters(const char *message, const VF &initDistrib,
+                     const VF &gapOpen, const VF &gapExtend,
+                     const char *filename);
+MultiSequence *DoAlign(MultiSequence *sequence,
+                       const ProbabilisticModel &model);
+SafeVector<string> ParseParams(int argc, char **argv);
+void ReadParameters();
+MultiSequence *ComputeFinalAlignment(
+    const TreeNode *tree, MultiSequence *sequences,
+    const SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices,
+    const ProbabilisticModel &model);
+MultiSequence *
+AlignAlignments(MultiSequence *align1, MultiSequence *align2,
+                const SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices,
+                const ProbabilisticModel &model);
+void DoRelaxation(MultiSequence *sequences,
+                  SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices);
+void Relax(SparseMatrix *matXZ, SparseMatrix *matZY, VF &posterior);
+void DoIterativeRefinement(
+    const SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices,
+    const ProbabilisticModel &model, MultiSequence *&alignment);
+// float ScoreAlignment (MultiSequence *alignment, MultiSequence *sequences,
+// SparseMatrix **sparseMatrices, const int numSeqs);
 
 /////////////////////////////////////////////////////////////////
 // main()
@@ -75,50 +81,56 @@ void DoIterativeRefinement (const SafeVector<SafeVector<SparseMatrix *> > &spars
 // aligner.
 /////////////////////////////////////////////////////////////////
 
-int main (int argc, char **argv){
+int main(int argc, char **argv) {
 
-  if (argc != 3){
+  if (argc != 3) {
     cerr << "Usage: FixRef inputfile reffile" << endl;
-    exit (1);
+    exit(1);
   }
 
-  string inputFilename = string (argv[1]);
-  string refFilename = string (argv[2]);
+  string inputFilename = string(argv[1]);
+  string refFilename = string(argv[2]);
 
   ReadParameters();
 
   // build new model for aligning
-  ProbabilisticModel model (initDistrib, gapOpen, gapExtend, 
-                            alphabet, emitPairs, emitSingle);
+  ProbabilisticModel model(initDistrib, gapOpen, gapExtend, alphabet, emitPairs,
+                           emitSingle);
 
-  MultiSequence *inputSeq = new MultiSequence(); inputSeq->LoadMFA (inputFilename);
-  MultiSequence *refSeq = new MultiSequence(); refSeq->LoadMFA (refFilename);
+  MultiSequence *inputSeq = new MultiSequence();
+  inputSeq->LoadMFA(inputFilename);
+  MultiSequence *refSeq = new MultiSequence();
+  refSeq->LoadMFA(refFilename);
 
   SafeVector<char> *ali = new SafeVector<char>;
 
-  if (refSeq->GetNumSequences() != 2){
+  if (refSeq->GetNumSequences() != 2) {
     cerr << "ERROR: Expected two sequences in reference alignment." << endl;
-    exit (1);
+    exit(1);
   }
-  set<int> s; s.insert (0);
-  MultiSequence *ref1 = refSeq->Project (s);
-  s.clear(); s.insert (1);
-  MultiSequence *ref2 = refSeq->Project (s);
+  set<int> s;
+  s.insert(0);
+  MultiSequence *ref1 = refSeq->Project(s);
+  s.clear();
+  s.insert(1);
+  MultiSequence *ref2 = refSeq->Project(s);
 
-  for (int i = 0; i < inputSeq->GetNumSequences(); i++){
-    if (inputSeq->GetSequence(i)->GetHeader() == ref1->GetSequence(0)->GetHeader()){
-      ref1->AddSequence (inputSeq->GetSequence(i)->Clone());
+  for (int i = 0; i < inputSeq->GetNumSequences(); i++) {
+    if (inputSeq->GetSequence(i)->GetHeader() ==
+        ref1->GetSequence(0)->GetHeader()) {
+      ref1->AddSequence(inputSeq->GetSequence(i)->Clone());
     }
-    if (inputSeq->GetSequence(i)->GetHeader() == ref2->GetSequence(0)->GetHeader())
-      ref2->AddSequence (inputSeq->GetSequence(i)->Clone());
+    if (inputSeq->GetSequence(i)->GetHeader() ==
+        ref2->GetSequence(0)->GetHeader())
+      ref2->AddSequence(inputSeq->GetSequence(i)->Clone());
   }
-  if (ref1->GetNumSequences() != 2){
+  if (ref1->GetNumSequences() != 2) {
     cerr << "ERROR: Expected two sequences in reference1 alignment." << endl;
-    exit (1);
+    exit(1);
   }
-  if (ref2->GetNumSequences() != 2){
+  if (ref2->GetNumSequences() != 2) {
     cerr << "ERROR: Expected two sequences in reference2 alignment." << endl;
-    exit (1);
+    exit(1);
   }
 
   ref1->GetSequence(0)->SetLabel(0);
@@ -129,81 +141,88 @@ int main (int argc, char **argv){
   //  cerr << "Aligning..." << endl;
 
   // now, we can perform the alignments and write them out
-  MultiSequence *alignment1 = DoAlign (ref1,
-                                       ProbabilisticModel (initDistrib, gapOpen, gapExtend, 
-                                                           alphabet, emitPairs, emitSingle));
+  MultiSequence *alignment1 =
+      DoAlign(ref1, ProbabilisticModel(initDistrib, gapOpen, gapExtend,
+                                       alphabet, emitPairs, emitSingle));
 
-  //cerr << "Aligning second..." << endl;
-  MultiSequence *alignment2 = DoAlign (ref2,
-                                       ProbabilisticModel (initDistrib, gapOpen, gapExtend, 
-                                                           alphabet, emitPairs, emitSingle));
+  // cerr << "Aligning second..." << endl;
+  MultiSequence *alignment2 =
+      DoAlign(ref2, ProbabilisticModel(initDistrib, gapOpen, gapExtend,
+                                       alphabet, emitPairs, emitSingle));
 
   SafeVector<char>::iterator iter1 = alignment1->GetSequence(0)->GetDataPtr();
   SafeVector<char>::iterator iter2 = alignment1->GetSequence(1)->GetDataPtr();
-  for (int i = 1; i <= alignment1->GetSequence(0)->GetLength(); i++){
-    if (islower(iter1[i])) iter2[i] = tolower(iter2[i]);
-    if (isupper(iter1[i])) iter2[i] = toupper(iter2[i]);
+  for (int i = 1; i <= alignment1->GetSequence(0)->GetLength(); i++) {
+    if (islower(iter1[i]))
+      iter2[i] = tolower(iter2[i]);
+    if (isupper(iter1[i]))
+      iter2[i] = toupper(iter2[i]);
   }
   iter1 = alignment2->GetSequence(0)->GetDataPtr();
   iter2 = alignment2->GetSequence(1)->GetDataPtr();
-  for (int i = 1; i <= alignment2->GetSequence(0)->GetLength(); i++){
-    if (islower(iter1[i])) iter2[i] = tolower(iter2[i]);
-    if (isupper(iter1[i])) iter2[i] = toupper(iter2[i]);
+  for (int i = 1; i <= alignment2->GetSequence(0)->GetLength(); i++) {
+    if (islower(iter1[i]))
+      iter2[i] = tolower(iter2[i]);
+    if (isupper(iter1[i]))
+      iter2[i] = toupper(iter2[i]);
   }
-  //alignment1->WriteMFA (cout);
-  //alignment2->WriteMFA (cout);
+  // alignment1->WriteMFA (cout);
+  // alignment2->WriteMFA (cout);
 
   int a1 = 0, a = 0;
   int b1 = 0, b = 0;
 
-  for (int i = 1; i <= refSeq->GetSequence(0)->GetLength(); i++){
+  for (int i = 1; i <= refSeq->GetSequence(0)->GetLength(); i++) {
 
     // catch up in filler sequences
-    if (refSeq->GetSequence(0)->GetPosition(i) != '-'){
-      while (true){
+    if (refSeq->GetSequence(0)->GetPosition(i) != '-') {
+      while (true) {
         a++;
-        if (alignment1->GetSequence(0)->GetPosition(a) != '-') break;
-        ali->push_back ('X');
+        if (alignment1->GetSequence(0)->GetPosition(a) != '-')
+          break;
+        ali->push_back('X');
       }
     }
-    if (refSeq->GetSequence(1)->GetPosition(i) != '-'){
-      while (true){
+    if (refSeq->GetSequence(1)->GetPosition(i) != '-') {
+      while (true) {
         b++;
-        if (alignment2->GetSequence(0)->GetPosition(b) != '-') break;
-        ali->push_back ('Y');
+        if (alignment2->GetSequence(0)->GetPosition(b) != '-')
+          break;
+        ali->push_back('Y');
       }
     }
 
     if (refSeq->GetSequence(0)->GetPosition(i) != '-' &&
-        refSeq->GetSequence(1)->GetPosition(i) != '-'){
-      //cerr << "M: " << refSeq->GetSequence(0)->GetPosition(i) << refSeq->GetSequence(1)->GetPosition(i) << endl;
-      ali->push_back ('B');
-    }
-    else if (refSeq->GetSequence(0)->GetPosition(i) != '-'){
-      //cerr << "X" << endl;
-      ali->push_back ('X');
-    }
-    else if (refSeq->GetSequence(1)->GetPosition(i) != '-'){
-      //cerr << "Y" << endl;
-      ali->push_back ('Y');
+        refSeq->GetSequence(1)->GetPosition(i) != '-') {
+      // cerr << "M: " << refSeq->GetSequence(0)->GetPosition(i) <<
+      // refSeq->GetSequence(1)->GetPosition(i) << endl;
+      ali->push_back('B');
+    } else if (refSeq->GetSequence(0)->GetPosition(i) != '-') {
+      // cerr << "X" << endl;
+      ali->push_back('X');
+    } else if (refSeq->GetSequence(1)->GetPosition(i) != '-') {
+      // cerr << "Y" << endl;
+      ali->push_back('Y');
     }
   }
 
-  while (a < alignment1->GetSequence(0)->GetLength()){
+  while (a < alignment1->GetSequence(0)->GetLength()) {
     a++;
-    ali->push_back ('X');
-    if (alignment1->GetSequence(0)->GetPosition(a) != '-') a1++;
+    ali->push_back('X');
+    if (alignment1->GetSequence(0)->GetPosition(a) != '-')
+      a1++;
   }
-  while (b < alignment2->GetSequence(0)->GetLength()){
+  while (b < alignment2->GetSequence(0)->GetLength()) {
     b++;
-    ali->push_back ('Y');
-    if (alignment2->GetSequence(0)->GetPosition(b) != '-') b1++;
+    ali->push_back('Y');
+    if (alignment2->GetSequence(0)->GetPosition(b) != '-')
+      b1++;
   }
 
-  Sequence *seq1 = alignment1->GetSequence(1)->AddGaps (ali, 'X');
-  Sequence *seq2 = alignment2->GetSequence(1)->AddGaps (ali, 'Y');
-  seq1->WriteMFA (cout, 60);
-  seq2->WriteMFA (cout, 60);
+  Sequence *seq1 = alignment1->GetSequence(1)->AddGaps(ali, 'X');
+  Sequence *seq2 = alignment2->GetSequence(1)->AddGaps(ali, 'Y');
+  seq1->WriteMFA(cout, 60);
+  seq2->WriteMFA(cout, 60);
 
   delete seq1;
   delete seq2;
@@ -221,9 +240,11 @@ int main (int argc, char **argv){
 // Prints heading for PROBCONS program.
 /////////////////////////////////////////////////////////////////
 
-void PrintHeading (){
+void PrintHeading() {
   cerr << endl
-       << "PROBCONS version 1.02 - align multiple protein sequences and print to standard output" << endl
+       << "PROBCONS version 1.02 - align multiple protein sequences and print "
+          "to standard output"
+       << endl
        << "Copyright (C) 2004  Chuong Ba Do" << endl
        << endl;
 }
@@ -235,37 +256,43 @@ void PrintHeading (){
 // specified, then the parameters are also written to the file.
 /////////////////////////////////////////////////////////////////
 
-void PrintParameters (const char *message, const VF &initDistrib, const VF &gapOpen,
-                      const VF &gapExtend, const char *filename){
+void PrintParameters(const char *message, const VF &initDistrib,
+                     const VF &gapOpen, const VF &gapExtend,
+                     const char *filename) {
 
   // print parameters to the screen
-  cerr << message << endl
-       << "    initDistrib[] = { ";
-  for (int i = 0; i < NumMatrixTypes; i++) cerr << setprecision (10) << initDistrib[i] << " ";
-  cerr << "}" << endl
-       << "        gapOpen[] = { ";
-  for (int i = 0; i < NumInsertStates*2; i++) cerr << setprecision (10) << gapOpen[i] << " ";
-  cerr << "}" << endl
-       << "      gapExtend[] = { ";
-  for (int i = 0; i < NumInsertStates*2; i++) cerr << setprecision (10) << gapExtend[i] << " ";
-  cerr << "}" << endl
-       << endl;
+  cerr << message << endl << "    initDistrib[] = { ";
+  for (int i = 0; i < NumMatrixTypes; i++)
+    cerr << setprecision(10) << initDistrib[i] << " ";
+  cerr << "}" << endl << "        gapOpen[] = { ";
+  for (int i = 0; i < NumInsertStates * 2; i++)
+    cerr << setprecision(10) << gapOpen[i] << " ";
+  cerr << "}" << endl << "      gapExtend[] = { ";
+  for (int i = 0; i < NumInsertStates * 2; i++)
+    cerr << setprecision(10) << gapExtend[i] << " ";
+  cerr << "}" << endl << endl;
 
   // if a file name is specified
-  if (filename){
+  if (filename) {
 
     // attempt to open the file for writing
-    FILE *file = fopen (filename, "w");
-    if (!file){
+    FILE *file = fopen(filename, "w");
+    if (!file) {
       cerr << "ERROR: Unable to write parameter file: " << filename << endl;
-      exit (1);
+      exit(1);
     }
 
     // if successful, then write the parameters to the file
-    for (int i = 0; i < NumMatrixTypes; i++) fprintf (file, "%.10f ", initDistrib[i]); fprintf (file, "\n");
-    for (int i = 0; i < 2*NumInsertStates; i++) fprintf (file, "%.10f ", gapOpen[i]); fprintf (file, "\n");
-    for (int i = 0; i < 2*NumInsertStates; i++) fprintf (file, "%.10f ", gapExtend[i]); fprintf (file, "\n");
-    fclose (file);
+    for (int i = 0; i < NumMatrixTypes; i++)
+      fprintf(file, "%.10f ", initDistrib[i]);
+    fprintf(file, "\n");
+    for (int i = 0; i < 2 * NumInsertStates; i++)
+      fprintf(file, "%.10f ", gapOpen[i]);
+    fprintf(file, "\n");
+    for (int i = 0; i < 2 * NumInsertStates; i++)
+      fprintf(file, "%.10f ", gapExtend[i]);
+    fprintf(file, "\n");
+    fclose(file);
   }
 }
 
@@ -277,28 +304,32 @@ void PrintParameters (const char *message, const VF &initDistrib, const VF &gapO
 // alignment, otherwise.
 /////////////////////////////////////////////////////////////////
 
-MultiSequence *DoAlign (MultiSequence *sequences, const ProbabilisticModel &model){
+MultiSequence *DoAlign(MultiSequence *sequences,
+                       const ProbabilisticModel &model) {
 
-  assert (sequences);
+  assert(sequences);
 
   const int numSeqs = sequences->GetNumSequences();
-  VVF distances (numSeqs, VF (numSeqs, 0));
-  SafeVector<SafeVector<SparseMatrix *> > sparseMatrices (numSeqs, SafeVector<SparseMatrix *>(numSeqs, NULL));
+  VVF distances(numSeqs, VF(numSeqs, 0));
+  SafeVector<SafeVector<SparseMatrix *>> sparseMatrices(
+      numSeqs, SafeVector<SparseMatrix *>(numSeqs, NULL));
 
   // do all pairwise alignments
-  for (int a = 0; a < numSeqs-1; a++){
-    for (int b = a+1; b < numSeqs; b++){
-      Sequence *seq1 = sequences->GetSequence (a);
-      Sequence *seq2 = sequences->GetSequence (b);
+  for (int a = 0; a < numSeqs - 1; a++) {
+    for (int b = a + 1; b < numSeqs; b++) {
+      Sequence *seq1 = sequences->GetSequence(a);
+      Sequence *seq2 = sequences->GetSequence(b);
 
       // verbose output
       if (enableVerbose)
-        cerr << "(" << a+1 << ") " << seq1->GetHeader() << " vs. "
-             << "(" << b+1 << ") " << seq2->GetHeader() << ": ";
+        cerr << "(" << a + 1 << ") " << seq1->GetHeader() << " vs. "
+             << "(" << b + 1 << ") " << seq2->GetHeader() << ": ";
 
       // compute forward and backward probabilities
-      VF *forward = model.ComputeForwardMatrix (seq1, seq2); assert (forward);
-      VF *backward = model.ComputeBackwardMatrix (seq1, seq2); assert (backward);
+      VF *forward = model.ComputeForwardMatrix(seq1, seq2);
+      assert(forward);
+      VF *backward = model.ComputeBackwardMatrix(seq1, seq2);
+      assert(backward);
 
       // if we are training, then we'll simply want to compute the
       // expected counts for each region within the matrix separately;
@@ -306,21 +337,24 @@ MultiSequence *DoAlign (MultiSequence *sequences, const ProbabilisticModel &mode
       // assemble a posterior probability match matrix
 
       // compute posterior probability matrix
-      VF *posterior = model.ComputePosteriorMatrix (seq1, seq2, *forward, *backward); assert (posterior);
+      VF *posterior =
+          model.ComputePosteriorMatrix(seq1, seq2, *forward, *backward);
+      assert(posterior);
 
       // compute "expected accuracy" distance for evolutionary tree computation
-      pair<SafeVector<char> *, float> alignment = model.ComputeAlignment (seq1->GetLength(),
-                                                                          seq2->GetLength(),
-                                                                          *posterior);
+      pair<SafeVector<char> *, float> alignment = model.ComputeAlignment(
+          seq1->GetLength(), seq2->GetLength(), *posterior);
 
-      float distance = alignment.second / min (seq1->GetLength(), seq2->GetLength());
+      float distance =
+          alignment.second / min(seq1->GetLength(), seq2->GetLength());
 
       if (enableVerbose)
-        cerr << setprecision (10) << distance << endl;
+        cerr << setprecision(10) << distance << endl;
 
       // save posterior probability matrices in sparse format
       distances[a][b] = distances[b][a] = distance;
-      sparseMatrices[a][b] = new SparseMatrix (seq1->GetLength(), seq2->GetLength(), *posterior);
+      sparseMatrices[a][b] =
+          new SparseMatrix(seq1->GetLength(), seq2->GetLength(), *posterior);
       sparseMatrices[b][a] = sparseMatrices[a][b]->ComputeTranspose();
 
       delete alignment.first;
@@ -331,22 +365,23 @@ MultiSequence *DoAlign (MultiSequence *sequences, const ProbabilisticModel &mode
     }
   }
 
-  if (!enableTraining){
+  if (!enableTraining) {
     if (enableVerbose)
       cerr << endl;
 
     // now, perform the consistency transformation the desired number of times
     for (int i = 0; i < numConsistencyReps; i++)
-      DoRelaxation (sequences, sparseMatrices);
+      DoRelaxation(sequences, sparseMatrices);
 
     // compute the evolutionary tree
-    TreeNode *tree = TreeNode::ComputeTree (distances);
+    TreeNode *tree = TreeNode::ComputeTree(distances);
 
-    //tree->Print (cerr, sequences);
-    //cerr << endl;
+    // tree->Print (cerr, sequences);
+    // cerr << endl;
 
     // make the final alignment
-    MultiSequence *alignment = ComputeFinalAlignment (tree, sequences, sparseMatrices, model);
+    MultiSequence *alignment =
+        ComputeFinalAlignment(tree, sequences, sparseMatrices, model);
     delete tree;
 
     return alignment;
@@ -362,18 +397,21 @@ MultiSequence *DoAlign (MultiSequence *sequences, const ProbabilisticModel &mode
 // Returns true only if no parsing error occurs.
 /////////////////////////////////////////////////////////////////
 
-bool GetInteger (char *data, int *val){
+bool GetInteger(char *data, int *val) {
   char *endPtr;
   long int retVal;
 
-  assert (val);
+  assert(val);
 
   errno = 0;
-  retVal = strtol (data, &endPtr, 0);
-  if (retVal == 0 && (errno != 0 || data == endPtr)) return false;
-  if (errno != 0 && (retVal == LONG_MAX || retVal == LONG_MIN)) return false;
-  if (retVal < (long) INT_MIN || retVal > (long) INT_MAX) return false;
-  *val = (int) retVal;
+  retVal = strtol(data, &endPtr, 0);
+  if (retVal == 0 && (errno != 0 || data == endPtr))
+    return false;
+  if (errno != 0 && (retVal == LONG_MAX || retVal == LONG_MIN))
+    return false;
+  if (retVal < (long)INT_MIN || retVal > (long)INT_MAX)
+    return false;
+  *val = (int)retVal;
   return true;
 }
 
@@ -384,17 +422,19 @@ bool GetInteger (char *data, int *val){
 // Returns true only if no parsing error occurs.
 /////////////////////////////////////////////////////////////////
 
-bool GetFloat (char *data, float *val){
+bool GetFloat(char *data, float *val) {
   char *endPtr;
   double retVal;
 
-  assert (val);
+  assert(val);
 
   errno = 0;
-  retVal = strtod (data, &endPtr);
-  if (retVal == 0 && (errno != 0 || data == endPtr)) return false;
-  if (errno != 0 && (retVal >= 1000000.0 || retVal <= -1000000.0)) return false;
-  *val = (float) retVal;
+  retVal = strtod(data, &endPtr);
+  if (retVal == 0 && (errno != 0 || data == endPtr))
+    return false;
+  if (errno != 0 && (retVal >= 1000000.0 || retVal <= -1000000.0))
+    return false;
+  *val = (float)retVal;
   return true;
 }
 
@@ -404,22 +444,29 @@ bool GetFloat (char *data, float *val){
 // Parse all command-line options.
 /////////////////////////////////////////////////////////////////
 
-SafeVector<string> ParseParams (int argc, char **argv){
+SafeVector<string> ParseParams(int argc, char **argv) {
 
-  if (argc < 2){
+  if (argc < 2) {
 
-    cerr << "PROBCONS comes with ABSOLUTELY NO WARRANTY.  This is free software, and" << endl
-         << "you are welcome to redistribute it under certain conditions.  See the" << endl
+    cerr << "PROBCONS comes with ABSOLUTELY NO WARRANTY.  This is free "
+            "software, and"
+         << endl
+         << "you are welcome to redistribute it under certain conditions.  See "
+            "the"
+         << endl
          << "file COPYING.txt for details." << endl
          << endl
          << "Usage:" << endl
          << "       probcons [OPTION]... [MFAFILE]..." << endl
          << endl
          << "Description:" << endl
-         << "       Align sequences in MFAFILE(s) and print result to standard output" << endl
+         << "       Align sequences in MFAFILE(s) and print result to standard "
+            "output"
+         << endl
          << endl
          << "       -t, --train FILENAME" << endl
-         << "              compute EM transition probabilities, store in FILENAME (default: "
+         << "              compute EM transition probabilities, store in "
+            "FILENAME (default: "
          << parametersOutputFilename << ")" << endl
          << endl
          << "       -m, --matrixfile FILENAME" << endl
@@ -427,198 +474,209 @@ SafeVector<string> ParseParams (int argc, char **argv){
          << matrixFilename << ")" << endl
          << endl
          << "       -p, --paramfile FILENAME" << endl
-         << "              read scoring matrix probabilities from FILENAME (default: "
+         << "              read scoring matrix probabilities from FILENAME "
+            "(default: "
          << parametersInputFilename << ")" << endl
          << endl
          << "       -c, --consistency REPS" << endl
-         << "              use " << MIN_CONSISTENCY_REPS << " <= REPS <= " << MAX_CONSISTENCY_REPS
-         << " (default: " << numConsistencyReps << ") passes of consistency transformation" << endl
+         << "              use " << MIN_CONSISTENCY_REPS
+         << " <= REPS <= " << MAX_CONSISTENCY_REPS
+         << " (default: " << numConsistencyReps
+         << ") passes of consistency transformation" << endl
          << endl
          << "       -ir, --iterative-refinement REPS" << endl
-         << "              use " << MIN_ITERATIVE_REFINEMENT_REPS << " <= REPS <= " << MAX_ITERATIVE_REFINEMENT_REPS
-         << " (default: " << numIterativeRefinementReps << ") passes of iterative-refinement" << endl
+         << "              use " << MIN_ITERATIVE_REFINEMENT_REPS
+         << " <= REPS <= " << MAX_ITERATIVE_REFINEMENT_REPS
+         << " (default: " << numIterativeRefinementReps
+         << ") passes of iterative-refinement" << endl
          << endl
          << "       -pre, --pre-training REPS" << endl
-         << "              use " << MIN_PRETRAINING_REPS << " <= REPS <= " << MAX_PRETRAINING_REPS
-         << " (default: " << numPreTrainingReps << ") rounds of pretraining" << endl
+         << "              use " << MIN_PRETRAINING_REPS
+         << " <= REPS <= " << MAX_PRETRAINING_REPS
+         << " (default: " << numPreTrainingReps << ") rounds of pretraining"
+         << endl
          << endl
          << "       -go, --gap-open VALUE" << endl
-         << "              gap opening penalty of VALUE <= 0 (default: " << gapOpenPenalty << ")" << endl
+         << "              gap opening penalty of VALUE <= 0 (default: "
+         << gapOpenPenalty << ")" << endl
          << endl
          << "       -ge, --gap-extension VALUE" << endl
-         << "              gap extension penalty of VALUE <= 0 (default: " << gapContinuePenalty << ")" << endl
+         << "              gap extension penalty of VALUE <= 0 (default: "
+         << gapContinuePenalty << ")" << endl
          << endl
          << "       -v, --verbose" << endl
-         << "              report progress while aligning (default: " << (enableVerbose ? "on" : "off") << ")" << endl
+         << "              report progress while aligning (default: "
+         << (enableVerbose ? "on" : "off") << ")" << endl
          << endl;
 
-    exit (1);
+    exit(1);
   }
 
   SafeVector<string> sequenceNames;
   int tempInt;
   float tempFloat;
 
-  for (int i = 1; i < argc; i++){
-    if (argv[i][0] == '-'){
+  for (int i = 1; i < argc; i++) {
+    if (argv[i][0] == '-') {
 
       // training
-      if (!strcmp (argv[i], "-t") || !strcmp (argv[i], "--train")){
+      if (!strcmp(argv[i], "-t") || !strcmp(argv[i], "--train")) {
         enableTraining = true;
         if (i < argc - 1)
-          parametersOutputFilename = string (argv[++i]);
+          parametersOutputFilename = string(argv[++i]);
         else {
           cerr << "ERROR: Filename expected for option " << argv[i] << endl;
-          exit (1);
+          exit(1);
         }
       }
 
       // scoring matrix file
-      else if (!strcmp (argv[i], "-m") || !strcmp (argv[i], "--matrixfile")){
+      else if (!strcmp(argv[i], "-m") || !strcmp(argv[i], "--matrixfile")) {
         if (i < argc - 1)
-          matrixFilename = string (argv[++i]);
+          matrixFilename = string(argv[++i]);
         else {
           cerr << "ERROR: Filename expected for option " << argv[i] << endl;
-          exit (1);
+          exit(1);
         }
       }
 
       // transition/initial distribution parameter file
-      else if (!strcmp (argv[i], "-p") || !strcmp (argv[i], "--paramfile")){
+      else if (!strcmp(argv[i], "-p") || !strcmp(argv[i], "--paramfile")) {
         if (i < argc - 1)
-          parametersInputFilename = string (argv[++i]);
+          parametersInputFilename = string(argv[++i]);
         else {
           cerr << "ERROR: Filename expected for option " << argv[i] << endl;
-          exit (1);
+          exit(1);
         }
       }
 
       // number of consistency transformations
-      else if (!strcmp (argv[i], "-c") || !strcmp (argv[i], "--consistency")){
-        if (i < argc - 1){
-          if (!GetInteger (argv[++i], &tempInt)){
-            cerr << "ERROR: Invalid integer following option " << argv[i-1] << ": " << argv[i] << endl;
-            exit (1);
-          }
-          else {
-            if (tempInt < MIN_CONSISTENCY_REPS || tempInt > MAX_CONSISTENCY_REPS){
-              cerr << "ERROR: For option " << argv[i-1] << ", integer must be between "
-                   << MIN_CONSISTENCY_REPS << " and " << MAX_CONSISTENCY_REPS << "." << endl;
-              exit (1);
-            }
-            else
+      else if (!strcmp(argv[i], "-c") || !strcmp(argv[i], "--consistency")) {
+        if (i < argc - 1) {
+          if (!GetInteger(argv[++i], &tempInt)) {
+            cerr << "ERROR: Invalid integer following option " << argv[i - 1]
+                 << ": " << argv[i] << endl;
+            exit(1);
+          } else {
+            if (tempInt < MIN_CONSISTENCY_REPS ||
+                tempInt > MAX_CONSISTENCY_REPS) {
+              cerr << "ERROR: For option " << argv[i - 1]
+                   << ", integer must be between " << MIN_CONSISTENCY_REPS
+                   << " and " << MAX_CONSISTENCY_REPS << "." << endl;
+              exit(1);
+            } else
               numConsistencyReps = tempInt;
           }
-        }
-        else {
+        } else {
           cerr << "ERROR: Integer expected for option " << argv[i] << endl;
-          exit (1);
+          exit(1);
         }
       }
 
       // number of randomized partitioning iterative refinement passes
-      else if (!strcmp (argv[i], "-ir") || !strcmp (argv[i], "--iterative-refinement")){
-        if (i < argc - 1){
-          if (!GetInteger (argv[++i], &tempInt)){
-            cerr << "ERROR: Invalid integer following option " << argv[i-1] << ": " << argv[i] << endl;
-            exit (1);
-          }
-          else {
-            if (tempInt < MIN_ITERATIVE_REFINEMENT_REPS || tempInt > MAX_ITERATIVE_REFINEMENT_REPS){
-              cerr << "ERROR: For option " << argv[i-1] << ", integer must be between "
-                   << MIN_ITERATIVE_REFINEMENT_REPS << " and " << MAX_ITERATIVE_REFINEMENT_REPS << "." << endl;
-              exit (1);
-            }
-            else
+      else if (!strcmp(argv[i], "-ir") ||
+               !strcmp(argv[i], "--iterative-refinement")) {
+        if (i < argc - 1) {
+          if (!GetInteger(argv[++i], &tempInt)) {
+            cerr << "ERROR: Invalid integer following option " << argv[i - 1]
+                 << ": " << argv[i] << endl;
+            exit(1);
+          } else {
+            if (tempInt < MIN_ITERATIVE_REFINEMENT_REPS ||
+                tempInt > MAX_ITERATIVE_REFINEMENT_REPS) {
+              cerr << "ERROR: For option " << argv[i - 1]
+                   << ", integer must be between "
+                   << MIN_ITERATIVE_REFINEMENT_REPS << " and "
+                   << MAX_ITERATIVE_REFINEMENT_REPS << "." << endl;
+              exit(1);
+            } else
               numIterativeRefinementReps = tempInt;
           }
-        }
-        else {
+        } else {
           cerr << "ERROR: Integer expected for option " << argv[i] << endl;
-          exit (1);
+          exit(1);
         }
       }
 
       // number of EM pre-training rounds
-      else if (!strcmp (argv[i], "-pre") || !strcmp (argv[i], "--pre-training")){
-        if (i < argc - 1){
-          if (!GetInteger (argv[++i], &tempInt)){
-            cerr << "ERROR: Invalid integer following option " << argv[i-1] << ": " << argv[i] << endl;
-            exit (1);
-          }
-          else {
-            if (tempInt < MIN_PRETRAINING_REPS || tempInt > MAX_PRETRAINING_REPS){
-              cerr << "ERROR: For option " << argv[i-1] << ", integer must be between "
-                   << MIN_PRETRAINING_REPS << " and " << MAX_PRETRAINING_REPS << "." << endl;
-              exit (1);
-            }
-            else
+      else if (!strcmp(argv[i], "-pre") || !strcmp(argv[i], "--pre-training")) {
+        if (i < argc - 1) {
+          if (!GetInteger(argv[++i], &tempInt)) {
+            cerr << "ERROR: Invalid integer following option " << argv[i - 1]
+                 << ": " << argv[i] << endl;
+            exit(1);
+          } else {
+            if (tempInt < MIN_PRETRAINING_REPS ||
+                tempInt > MAX_PRETRAINING_REPS) {
+              cerr << "ERROR: For option " << argv[i - 1]
+                   << ", integer must be between " << MIN_PRETRAINING_REPS
+                   << " and " << MAX_PRETRAINING_REPS << "." << endl;
+              exit(1);
+            } else
               numPreTrainingReps = tempInt;
           }
-        }
-        else {
+        } else {
           cerr << "ERROR: Integer expected for option " << argv[i] << endl;
-          exit (1);
+          exit(1);
         }
       }
 
       // gap open penalty
-      else if (!strcmp (argv[i], "-go") || !strcmp (argv[i], "--gap-open")){
-        if (i < argc - 1){
-          if (!GetFloat (argv[++i], &tempFloat)){
-            cerr << "ERROR: Invalid floating-point value following option " << argv[i-1] << ": " << argv[i] << endl;
-            exit (1);
-          }
-          else {
-            if (tempFloat > 0){
-              cerr << "ERROR: For option " << argv[i-1] << ", floating-point value must not be positive." << endl;
-              exit (1);
-            }
-            else
+      else if (!strcmp(argv[i], "-go") || !strcmp(argv[i], "--gap-open")) {
+        if (i < argc - 1) {
+          if (!GetFloat(argv[++i], &tempFloat)) {
+            cerr << "ERROR: Invalid floating-point value following option "
+                 << argv[i - 1] << ": " << argv[i] << endl;
+            exit(1);
+          } else {
+            if (tempFloat > 0) {
+              cerr << "ERROR: For option " << argv[i - 1]
+                   << ", floating-point value must not be positive." << endl;
+              exit(1);
+            } else
               gapOpenPenalty = tempFloat;
           }
-        }
-        else {
-          cerr << "ERROR: Floating-point value expected for option " << argv[i] << endl;
-          exit (1);
+        } else {
+          cerr << "ERROR: Floating-point value expected for option " << argv[i]
+               << endl;
+          exit(1);
         }
       }
 
       // gap extension penalty
-      else if (!strcmp (argv[i], "-ge") || !strcmp (argv[i], "--gap-extension")){
-        if (i < argc - 1){
-          if (!GetFloat (argv[++i], &tempFloat)){
-            cerr << "ERROR: Invalid floating-point value following option " << argv[i-1] << ": " << argv[i] << endl;
-            exit (1);
-          }
-          else {
-            if (tempFloat > 0){
-              cerr << "ERROR: For option " << argv[i-1] << ", floating-point value must not be positive." << endl;
-              exit (1);
-            }
-            else
+      else if (!strcmp(argv[i], "-ge") || !strcmp(argv[i], "--gap-extension")) {
+        if (i < argc - 1) {
+          if (!GetFloat(argv[++i], &tempFloat)) {
+            cerr << "ERROR: Invalid floating-point value following option "
+                 << argv[i - 1] << ": " << argv[i] << endl;
+            exit(1);
+          } else {
+            if (tempFloat > 0) {
+              cerr << "ERROR: For option " << argv[i - 1]
+                   << ", floating-point value must not be positive." << endl;
+              exit(1);
+            } else
               gapContinuePenalty = tempFloat;
           }
-        }
-        else {
-          cerr << "ERROR: Floating-point value expected for option " << argv[i] << endl;
-          exit (1);
+        } else {
+          cerr << "ERROR: Floating-point value expected for option " << argv[i]
+               << endl;
+          exit(1);
         }
       }
 
       // verbose reporting
-      else if (!strcmp (argv[i], "-v") || !strcmp (argv[i], "--verbose")){
+      else if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose")) {
         enableVerbose = true;
       }
 
       // bad arguments
       else {
         cerr << "ERROR: Unrecognized option: " << argv[i] << endl;
-        exit (1);
+        exit(1);
       }
-    }
-    else {
-      sequenceNames.push_back (string (argv[i]));
+    } else {
+      sequenceNames.push_back(string(argv[i]));
     }
   }
 
@@ -632,37 +690,46 @@ SafeVector<string> ParseParams (int argc, char **argv){
 // parameters from a file.
 /////////////////////////////////////////////////////////////////
 
-void ReadParameters (){
+void ReadParameters() {
 
   ifstream data;
 
   // read initial state distribution and transition parameters
-  if (parametersInputFilename == string ("")){
-    if (NumInsertStates == 1){
-      for (int i = 0; i < NumMatrixTypes; i++) initDistrib[i] = initDistrib1Default[i];
-      for (int i = 0; i < 2*NumInsertStates; i++) gapOpen[i] = gapOpen1Default[i];
-      for (int i = 0; i < 2*NumInsertStates; i++) gapExtend[i] = gapExtend1Default[i];
+  if (parametersInputFilename == string("")) {
+    if (NumInsertStates == 1) {
+      for (int i = 0; i < NumMatrixTypes; i++)
+        initDistrib[i] = initDistrib1Default[i];
+      for (int i = 0; i < 2 * NumInsertStates; i++)
+        gapOpen[i] = gapOpen1Default[i];
+      for (int i = 0; i < 2 * NumInsertStates; i++)
+        gapExtend[i] = gapExtend1Default[i];
+    } else if (NumInsertStates == 2) {
+      for (int i = 0; i < NumMatrixTypes; i++)
+        initDistrib[i] = initDistrib2Default[i];
+      for (int i = 0; i < 2 * NumInsertStates; i++)
+        gapOpen[i] = gapOpen2Default[i];
+      for (int i = 0; i < 2 * NumInsertStates; i++)
+        gapExtend[i] = gapExtend2Default[i];
+    } else {
+      cerr << "ERROR: No default initial distribution/parameter settings exist"
+           << endl
+           << "       for " << NumInsertStates
+           << " pairs of insert states.  Use --paramfile." << endl;
+      exit(1);
     }
-    else if (NumInsertStates == 2){
-      for (int i = 0; i < NumMatrixTypes; i++) initDistrib[i] = initDistrib2Default[i];
-      for (int i = 0; i < 2*NumInsertStates; i++) gapOpen[i] = gapOpen2Default[i];
-      for (int i = 0; i < 2*NumInsertStates; i++) gapExtend[i] = gapExtend2Default[i];
+  } else {
+    data.open(parametersInputFilename.c_str());
+    if (data.fail()) {
+      cerr << "ERROR: Unable to read parameter file: "
+           << parametersInputFilename << endl;
+      exit(1);
     }
-    else {
-      cerr << "ERROR: No default initial distribution/parameter settings exist" << endl
-           << "       for " << NumInsertStates << " pairs of insert states.  Use --paramfile." << endl;
-      exit (1);
-    }
-  }
-  else {
-    data.open (parametersInputFilename.c_str());
-    if (data.fail()){
-      cerr << "ERROR: Unable to read parameter file: " << parametersInputFilename << endl;
-      exit (1);
-    }
-    for (int i = 0; i < NumMatrixTypes; i++) data >> initDistrib[i];
-    for (int i = 0; i < 2*NumInsertStates; i++) data >> gapOpen[i];
-    for (int i = 0; i < 2*NumInsertStates; i++) data >> gapExtend[i];
+    for (int i = 0; i < NumMatrixTypes; i++)
+      data >> initDistrib[i];
+    for (int i = 0; i < 2 * NumInsertStates; i++)
+      data >> gapOpen[i];
+    for (int i = 0; i < 2 * NumInsertStates; i++)
+      data >> gapExtend[i];
     data.close();
   }
 
@@ -671,38 +738,41 @@ void ReadParameters (){
 
   // allocate memory
   alphabet = SafeVector<char>(alphabetSize);
-  emitPairs = VVF (alphabetSize, VF (alphabetSize, 0));
-  emitSingle = VF (alphabetSize);
+  emitPairs = VVF(alphabetSize, VF(alphabetSize, 0));
+  emitSingle = VF(alphabetSize);
 
-  if (matrixFilename == string ("")){
-    for (int i = 0; i < alphabetSize; i++) alphabet[i] = alphabetDefault[i];
-    for (int i = 0; i < alphabetSize; i++){
+  if (matrixFilename == string("")) {
+    for (int i = 0; i < alphabetSize; i++)
+      alphabet[i] = alphabetDefault[i];
+    for (int i = 0; i < alphabetSize; i++) {
       emitSingle[i] = emitSingleDefault[i];
-      for (int j = 0; j <= i; j++){
+      for (int j = 0; j <= i; j++) {
         emitPairs[i][j] = emitPairs[j][i] = (i == j);
       }
     }
-  }
-  else {
-    data.open (matrixFilename.c_str());
-    if (data.fail()){
-      cerr << "ERROR: Unable to read scoring matrix file: " << matrixFilename << endl;
-      exit (1);
+  } else {
+    data.open(matrixFilename.c_str());
+    if (data.fail()) {
+      cerr << "ERROR: Unable to read scoring matrix file: " << matrixFilename
+           << endl;
+      exit(1);
     }
 
-    for (int i = 0; i < alphabetSize; i++) data >> alphabet[i];
-    for (int i = 0; i < alphabetSize; i++){
-      for (int j = 0; j <= i; j++){
+    for (int i = 0; i < alphabetSize; i++)
+      data >> alphabet[i];
+    for (int i = 0; i < alphabetSize; i++) {
+      for (int j = 0; j <= i; j++) {
         data >> emitPairs[i][j];
         emitPairs[j][i] = emitPairs[i][j];
       }
     }
-    for (int i = 0; i < alphabetSize; i++){
+    for (int i = 0; i < alphabetSize; i++) {
       char ch;
       data >> ch;
-      assert (ch == alphabet[i]);
+      assert(ch == alphabet[i]);
     }
-    for (int i = 0; i < alphabetSize; i++) data >> emitSingle[i];
+    for (int i = 0; i < alphabetSize; i++)
+      data >> emitSingle[i];
     data.close();
   }
 }
@@ -714,21 +784,24 @@ void ReadParameters (){
 // corresponding to a node or leaf of the tree.
 /////////////////////////////////////////////////////////////////
 
-MultiSequence *ProcessTree (const TreeNode *tree, MultiSequence *sequences,
-                            const SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices,
-                            const ProbabilisticModel &model){
+MultiSequence *
+ProcessTree(const TreeNode *tree, MultiSequence *sequences,
+            const SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices,
+            const ProbabilisticModel &model) {
   MultiSequence *result;
 
   // check if this is a node of the alignment tree
-  if (tree->GetSequenceLabel() == -1){
-    MultiSequence *alignLeft = ProcessTree (tree->GetLeftChild(), sequences, sparseMatrices, model);
-    MultiSequence *alignRight = ProcessTree (tree->GetRightChild(), sequences, sparseMatrices, model);
+  if (tree->GetSequenceLabel() == -1) {
+    MultiSequence *alignLeft =
+        ProcessTree(tree->GetLeftChild(), sequences, sparseMatrices, model);
+    MultiSequence *alignRight =
+        ProcessTree(tree->GetRightChild(), sequences, sparseMatrices, model);
 
-    assert (alignLeft);
-    assert (alignRight);
+    assert(alignLeft);
+    assert(alignRight);
 
-    result = AlignAlignments (alignLeft, alignRight, sparseMatrices, model);
-    assert (result);
+    result = AlignAlignments(alignLeft, alignRight, sparseMatrices, model);
+    assert(result);
 
     delete alignLeft;
     delete alignRight;
@@ -736,8 +809,10 @@ MultiSequence *ProcessTree (const TreeNode *tree, MultiSequence *sequences,
 
   // otherwise, this is a leaf of the alignment tree
   else {
-    result = new MultiSequence(); assert (result);
-    result->AddSequence (sequences->GetSequence(tree->GetSequenceLabel())->Clone());
+    result = new MultiSequence();
+    assert(result);
+    result->AddSequence(
+        sequences->GetSequence(tree->GetSequenceLabel())->Clone());
   }
 
   return result;
@@ -750,15 +825,17 @@ MultiSequence *ProcessTree (const TreeNode *tree, MultiSequence *sequences,
 // performing iterative refinement as needed.
 /////////////////////////////////////////////////////////////////
 
-MultiSequence *ComputeFinalAlignment (const TreeNode *tree, MultiSequence *sequences,
-                                      const SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices,
-                                      const ProbabilisticModel &model){
+MultiSequence *ComputeFinalAlignment(
+    const TreeNode *tree, MultiSequence *sequences,
+    const SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices,
+    const ProbabilisticModel &model) {
 
-  MultiSequence *alignment = ProcessTree (tree, sequences, sparseMatrices, model);
+  MultiSequence *alignment =
+      ProcessTree(tree, sequences, sparseMatrices, model);
 
   // iterative refinement
   for (int i = 0; i < numIterativeRefinementReps; i++)
-    DoIterativeRefinement (sparseMatrices, model, alignment);
+    DoIterativeRefinement(sparseMatrices, model, alignment);
 
   cerr << endl;
 
@@ -772,40 +849,44 @@ MultiSequence *ComputeFinalAlignment (const TreeNode *tree, MultiSequence *seque
 // Returns the alignment of two MultiSequence objects.
 /////////////////////////////////////////////////////////////////
 
-MultiSequence *AlignAlignments (MultiSequence *align1, MultiSequence *align2,
-                                const SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices,
-                                const ProbabilisticModel &model){
+MultiSequence *
+AlignAlignments(MultiSequence *align1, MultiSequence *align2,
+                const SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices,
+                const ProbabilisticModel &model) {
 
   // print some info about the alignment
-  if (enableVerbose){
+  if (enableVerbose) {
     for (int i = 0; i < align1->GetNumSequences(); i++)
-      cerr << ((i==0) ? "[" : ",") << align1->GetSequence(i)->GetLabel();
+      cerr << ((i == 0) ? "[" : ",") << align1->GetSequence(i)->GetLabel();
     cerr << "] vs. ";
     for (int i = 0; i < align2->GetNumSequences(); i++)
-      cerr << ((i==0) ? "[" : ",") << align2->GetSequence(i)->GetLabel();
+      cerr << ((i == 0) ? "[" : ",") << align2->GetSequence(i)->GetLabel();
     cerr << "]: ";
   }
 
-  VF *posterior = model.BuildPosterior (align1, align2, sparseMatrices);
+  VF *posterior = model.BuildPosterior(align1, align2, sparseMatrices);
   pair<SafeVector<char> *, float> alignment;
 
   // choose the alignment routine depending on the "cosmetic" gap penalties used
   if (gapOpenPenalty == 0 && gapContinuePenalty == 0)
-    alignment = model.ComputeAlignment (align1->GetSequence(0)->GetLength(), align2->GetSequence(0)->GetLength(), *posterior);
+    alignment =
+        model.ComputeAlignment(align1->GetSequence(0)->GetLength(),
+                               align2->GetSequence(0)->GetLength(), *posterior);
   else
-    alignment = model.ComputeAlignmentWithGapPenalties (align1, align2,
-                                                        *posterior, align1->GetNumSequences(), align2->GetNumSequences(),
-                                                        gapOpenPenalty, gapContinuePenalty);
+    alignment = model.ComputeAlignmentWithGapPenalties(
+        align1, align2, *posterior, align1->GetNumSequences(),
+        align2->GetNumSequences(), gapOpenPenalty, gapContinuePenalty);
 
   delete posterior;
 
-  if (enableVerbose){
+  if (enableVerbose) {
 
     // compute total length of sequences
     int totLength = 0;
     for (int i = 0; i < align1->GetNumSequences(); i++)
       for (int j = 0; j < align2->GetNumSequences(); j++)
-        totLength += min (align1->GetSequence(i)->GetLength(), align2->GetSequence(j)->GetLength());
+        totLength += min(align1->GetSequence(i)->GetLength(),
+                         align2->GetSequence(j)->GetLength());
 
     // give an "accuracy" measure for the alignment
     cerr << alignment.second / totLength << endl;
@@ -814,9 +895,9 @@ MultiSequence *AlignAlignments (MultiSequence *align1, MultiSequence *align2,
   // now build final alignment
   MultiSequence *result = new MultiSequence();
   for (int i = 0; i < align1->GetNumSequences(); i++)
-    result->AddSequence (align1->GetSequence(i)->AddGaps(alignment.first, 'X'));
+    result->AddSequence(align1->GetSequence(i)->AddGaps(alignment.first, 'X'));
   for (int i = 0; i < align2->GetNumSequences(); i++)
-    result->AddSequence (align2->GetSequence(i)->AddGaps(alignment.first, 'Y'));
+    result->AddSequence(align2->GetSequence(i)->AddGaps(alignment.first, 'Y'));
   result->SortByLabel();
 
   // free temporary alignment
@@ -838,44 +919,51 @@ MultiSequence *AlignAlignments (MultiSequence *align1, MultiSequence *align2,
 //
 /////////////////////////////////////////////////////////////////
 
-void DoRelaxation (MultiSequence *sequences, SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices){
+void DoRelaxation(MultiSequence *sequences,
+                  SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices) {
   const int numSeqs = sequences->GetNumSequences();
 
-  SafeVector<SafeVector<SparseMatrix *> > newSparseMatrices (numSeqs, SafeVector<SparseMatrix *>(numSeqs, NULL));
+  SafeVector<SafeVector<SparseMatrix *>> newSparseMatrices(
+      numSeqs, SafeVector<SparseMatrix *>(numSeqs, NULL));
 
   // for every pair of sequences
-  for (int i = 0; i < numSeqs; i++){
-    for (int j = i+1; j < numSeqs; j++){
-      Sequence *seq1 = sequences->GetSequence (i);
-      Sequence *seq2 = sequences->GetSequence (j);
+  for (int i = 0; i < numSeqs; i++) {
+    for (int j = i + 1; j < numSeqs; j++) {
+      Sequence *seq1 = sequences->GetSequence(i);
+      Sequence *seq2 = sequences->GetSequence(j);
 
       if (enableVerbose)
-        cerr << "Relaxing (" << i+1 << ") " << seq1->GetHeader() << " vs. "
-             << "(" << j+1 << ") " << seq2->GetHeader() << ": ";
+        cerr << "Relaxing (" << i + 1 << ") " << seq1->GetHeader() << " vs. "
+             << "(" << j + 1 << ") " << seq2->GetHeader() << ": ";
 
       // get the original posterior matrix
-      VF *posteriorPtr = sparseMatrices[i][j]->GetPosterior(); assert (posteriorPtr);
+      VF *posteriorPtr = sparseMatrices[i][j]->GetPosterior();
+      assert(posteriorPtr);
       VF &posterior = *posteriorPtr;
 
       const int seq1Length = seq1->GetLength();
       const int seq2Length = seq2->GetLength();
 
       // contribution from the summation where z = x and z = y
-      for (int k = 0; k < (seq1Length+1) * (seq2Length+1); k++) posterior[k] += posterior[k];
+      for (int k = 0; k < (seq1Length + 1) * (seq2Length + 1); k++)
+        posterior[k] += posterior[k];
 
       if (enableVerbose)
         cerr << sparseMatrices[i][j]->GetNumCells() << " --> ";
 
       // contribution from all other sequences
-      for (int k = 0; k < numSeqs; k++) if (k != i && k != j){
-        Relax (sparseMatrices[i][k], sparseMatrices[k][j], posterior);
-      }
+      for (int k = 0; k < numSeqs; k++)
+        if (k != i && k != j) {
+          Relax(sparseMatrices[i][k], sparseMatrices[k][j], posterior);
+        }
 
       // now renormalization
-      for (int k = 0; k < (seq1Length+1) * (seq2Length+1); k++) posterior[k] /= numSeqs;
+      for (int k = 0; k < (seq1Length + 1) * (seq2Length + 1); k++)
+        posterior[k] /= numSeqs;
 
       // save the new posterior matrix
-      newSparseMatrices[i][j] = new SparseMatrix (seq1->GetLength(), seq2->GetLength(), posterior);
+      newSparseMatrices[i][j] =
+          new SparseMatrix(seq1->GetLength(), seq2->GetLength(), posterior);
       newSparseMatrices[j][i] = newSparseMatrices[i][j]->ComputeTranspose();
 
       if (enableVerbose)
@@ -889,8 +977,8 @@ void DoRelaxation (MultiSequence *sequences, SafeVector<SafeVector<SparseMatrix 
   }
 
   // now replace the old posterior matrices
-  for (int i = 0; i < numSeqs; i++){
-    for (int j = 0; j < numSeqs; j++){
+  for (int i = 0; i < numSeqs; i++) {
+    for (int j = 0; j < numSeqs; j++) {
       delete sparseMatrices[i][j];
       sparseMatrices[i][j] = newSparseMatrices[i][j];
     }
@@ -904,31 +992,32 @@ void DoRelaxation (MultiSequence *sequences, SafeVector<SafeVector<SparseMatrix 
 // z, and adds the transformed matrix to "posterior".
 /////////////////////////////////////////////////////////////////
 
-void Relax (SparseMatrix *matXZ, SparseMatrix *matZY, VF &posterior){
+void Relax(SparseMatrix *matXZ, SparseMatrix *matZY, VF &posterior) {
 
-  assert (matXZ);
-  assert (matZY);
+  assert(matXZ);
+  assert(matZY);
 
   int lengthX = matXZ->GetSeq1Length();
   int lengthY = matZY->GetSeq2Length();
-  assert (matXZ->GetSeq2Length() == matZY->GetSeq1Length());
+  assert(matXZ->GetSeq2Length() == matZY->GetSeq1Length());
 
   // for every x[i]
-  for (int i = 1; i <= lengthX; i++){
+  for (int i = 1; i <= lengthX; i++) {
     SafeVector<PIF>::iterator XZptr = matXZ->GetRowPtr(i);
     SafeVector<PIF>::iterator XZend = XZptr + matXZ->GetRowSize(i);
 
     VF::iterator base = posterior.begin() + i * (lengthY + 1);
 
     // iterate through all x[i]-z[k]
-    while (XZptr != XZend){
+    while (XZptr != XZend) {
       SafeVector<PIF>::iterator ZYptr = matZY->GetRowPtr(XZptr->first);
       SafeVector<PIF>::iterator ZYend = ZYptr + matZY->GetRowSize(XZptr->first);
       const float XZval = XZptr->second;
 
       // iterate through all z[k]-y[j]
-      while (ZYptr != ZYend){
-        base[ZYptr->first] += XZval * ZYptr->second;;
+      while (ZYptr != ZYend) {
+        base[ZYptr->first] += XZval * ZYptr->second;
+        ;
         ZYptr++;
       }
       XZptr++;
@@ -943,41 +1032,47 @@ void Relax (SparseMatrix *matXZ, SparseMatrix *matZY, VF &posterior){
 // refinement.
 /////////////////////////////////////////////////////////////////
 
-void DoIterativeRefinement (const SafeVector<SafeVector<SparseMatrix *> > &sparseMatrices,
-                            const ProbabilisticModel &model, MultiSequence* &alignment){
+void DoIterativeRefinement(
+    const SafeVector<SafeVector<SparseMatrix *>> &sparseMatrices,
+    const ProbabilisticModel &model, MultiSequence *&alignment) {
   set<int> groupOne, groupTwo;
 
   // create two separate groups
-  for (int i = 0; i < alignment->GetNumSequences(); i++){
+  for (int i = 0; i < alignment->GetNumSequences(); i++) {
     if (random() % 2)
-      groupOne.insert (i);
+      groupOne.insert(i);
     else
-      groupTwo.insert (i);
+      groupTwo.insert(i);
   }
 
-  if (groupOne.empty() || groupTwo.empty()) return;
+  if (groupOne.empty() || groupTwo.empty())
+    return;
 
   // project into the two groups
-  MultiSequence *groupOneSeqs = alignment->Project (groupOne); assert (groupOneSeqs);
-  MultiSequence *groupTwoSeqs = alignment->Project (groupTwo); assert (groupTwoSeqs);
+  MultiSequence *groupOneSeqs = alignment->Project(groupOne);
+  assert(groupOneSeqs);
+  MultiSequence *groupTwoSeqs = alignment->Project(groupTwo);
+  assert(groupTwoSeqs);
   delete alignment;
 
   // realign
-  alignment = AlignAlignments (groupOneSeqs, groupTwoSeqs, sparseMatrices, model);
+  alignment =
+      AlignAlignments(groupOneSeqs, groupTwoSeqs, sparseMatrices, model);
 }
 
 /*
-float ScoreAlignment (MultiSequence *alignment, MultiSequence *sequences, SparseMatrix **sparseMatrices, const int numSeqs){
-  int totLength = 0;
-  float score = 0;
+float ScoreAlignment (MultiSequence *alignment, MultiSequence *sequences,
+SparseMatrix **sparseMatrices, const int numSeqs){ int totLength = 0; float
+score = 0;
 
   for (int a = 0; a < alignment->GetNumSequences(); a++){
     for (int b = a+1; b < alignment->GetNumSequences(); b++){
       Sequence *seq1 = alignment->GetSequence(a);
       Sequence *seq2 = alignment->GetSequence(b);
 
-      const int seq1Length = sequences->GetSequence(seq1->GetLabel())->GetLength();
-      const int seq2Length = sequences->GetSequence(seq2->GetLabel())->GetLength();
+      const int seq1Length =
+sequences->GetSequence(seq1->GetLabel())->GetLength(); const int seq2Length =
+sequences->GetSequence(seq2->GetLabel())->GetLength();
 
       totLength += min (seq1Length, seq2Length);
 

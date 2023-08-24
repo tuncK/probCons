@@ -7,13 +7,13 @@
 #ifndef SEQUENCE_H
 #define SEQUENCE_H
 
-#include <string>
-#include <fstream>
-#include <iostream>
+#include "FileBuffer.h"
+#include "SafeVector.h"
 #include <cctype>
 #include <cstdlib>
-#include "SafeVector.h"
-#include "FileBuffer.h"
+#include <fstream>
+#include <iostream>
+#include <string>
 
 /////////////////////////////////////////////////////////////////
 // Sequence
@@ -23,13 +23,15 @@
 
 class Sequence {
 
-  bool isValid;                // a boolean indicating whether the sequence data is valid or not
-  string header;               // string containing the comment line of the FASTA file
-  SafeVector<char> *data;      // pointer to character data
-  int length;                  // length of the sequence
-  int sequenceLabel;           // integer sequence label, typically to indicate the ordering of sequences
-                               //   in a Multi-FASTA file
-  int inputLabel;              // position of sequence in original input
+  bool
+      isValid; // a boolean indicating whether the sequence data is valid or not
+  string header; // string containing the comment line of the FASTA file
+  SafeVector<char> *data; // pointer to character data
+  int length;             // length of the sequence
+  int sequenceLabel;      // integer sequence label, typically to indicate the
+                          // ordering of sequences
+                          //   in a Multi-FASTA file
+  int inputLabel;         // position of sequence in original input
 
   /////////////////////////////////////////////////////////////////
   // Sequence::Sequence()
@@ -37,56 +39,70 @@ class Sequence {
   // Default constructor.  Does nothing.
   /////////////////////////////////////////////////////////////////
 
-  Sequence () : isValid (false), header (""), data (NULL), length (0), sequenceLabel (0), inputLabel (0) {}
+  Sequence()
+      : isValid(false), header(""), data(NULL), length(0), sequenceLabel(0),
+        inputLabel(0) {}
 
- public:
-
+public:
   /////////////////////////////////////////////////////////////////
   // Sequence::Sequence()
   //
   // Constructor.  Reads the sequence from a FileBuffer.
   /////////////////////////////////////////////////////////////////
 
-  Sequence (FileBuffer &infile, bool stripGaps = false) : isValid (false), header ("~"), data (NULL), length(0), sequenceLabel (0), inputLabel (0) {
+  Sequence(FileBuffer &infile, bool stripGaps = false)
+      : isValid(false), header("~"), data(NULL), length(0), sequenceLabel(0),
+        inputLabel(0) {
 
     // read until the first non-blank line
-    while (!infile.eof()){
-      infile.GetLine (header);
-      if (header.length() != 0) break;
+    while (!infile.eof()) {
+      infile.GetLine(header);
+      if (header.length() != 0)
+        break;
     }
 
     // check to make sure that it is a correct header line
-    if (header[0] == '>'){
+    if (header[0] == '>') {
 
       // if so, remove the leading ">"
-      header = header.substr (1);
+      header = header.substr(1);
 
       // remove any leading or trailing white space in the header comment
-      while (header.length() > 0 && isspace (header[0])) header = header.substr (1);
-      while (header.length() > 0 && isspace (header[header.length() - 1])) header = header.substr(0, header.length() - 1);
+      while (header.length() > 0 && isspace(header[0]))
+        header = header.substr(1);
+      while (header.length() > 0 && isspace(header[header.length() - 1]))
+        header = header.substr(0, header.length() - 1);
 
       // get ready to read the data[] array; note that data[0] is always '@'
       char ch;
-      data = new SafeVector<char>; assert (data);
-      data->push_back ('@');
+      data = new SafeVector<char>;
+      assert(data);
+      data->push_back('@');
 
       // get a character from the file
-      while (infile.Get(ch)){
+      while (infile.Get(ch)) {
 
         // if we've reached a new comment line, put the character back and stop
-        if (ch == '>'){ infile.UnGet(); break; }
+        if (ch == '>') {
+          infile.UnGet();
+          break;
+        }
 
         // skip whitespace
-        if (isspace (ch)) continue;
+        if (isspace(ch))
+          continue;
 
         // substitute gap character
-        if (ch == '.') ch = '-';
-	if (stripGaps && ch == '-') continue;
+        if (ch == '.')
+          ch = '-';
+        if (stripGaps && ch == '-')
+          continue;
 
         // check for known characters
-        if (!((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') || ch == '*' || ch == '-')){
+        if (!((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z') ||
+              ch == '*' || ch == '-')) {
           cerr << "ERROR: Unknown character encountered: " << ch << endl;
-          exit (1);
+          exit(1);
         }
 
         // everything's ok so far, so just store this character.
@@ -96,14 +112,13 @@ class Sequence {
 
       // sequence must contain data in order to be valid
       isValid = length > 0;
-      if (!isValid){
+      if (!isValid) {
         delete data;
         data = NULL;
       }
     }
   }
 
-  
   /////////////////////////////////////////////////////////////////
   // Sequence::Sequence()
   //
@@ -112,10 +127,12 @@ class Sequence {
   // be set to '@'.
   /////////////////////////////////////////////////////////////////
 
-  Sequence (SafeVector<char> *data, string header, int length, int sequenceLabel, int inputLabel) :
-    isValid (data != NULL), header(header), data(data), length (length), sequenceLabel (sequenceLabel), inputLabel (inputLabel) {
-      assert (data);
-      assert ((*data)[0] == '@');
+  Sequence(SafeVector<char> *data, string header, int length, int sequenceLabel,
+           int inputLabel)
+      : isValid(data != NULL), header(header), data(data), length(length),
+        sequenceLabel(sequenceLabel), inputLabel(inputLabel) {
+    assert(data);
+    assert((*data)[0] == '@');
   }
 
   /////////////////////////////////////////////////////////////////
@@ -124,9 +141,9 @@ class Sequence {
   // Destructor.  Release allocated memory.
   /////////////////////////////////////////////////////////////////
 
-  ~Sequence (){
-    if (data){
-      assert (isValid);
+  ~Sequence() {
+    if (data) {
+      assert(isValid);
       delete data;
       data = NULL;
       isValid = false;
@@ -139,9 +156,7 @@ class Sequence {
   // Return the string comment associated with this sequence.
   /////////////////////////////////////////////////////////////////
 
-  string GetHeader () const {
-    return header;
-  }
+  string GetHeader() const { return header; }
 
   /////////////////////////////////////////////////////////////////
   // Sequence::GetName()
@@ -149,9 +164,9 @@ class Sequence {
   // Return the first word of the string comment associated with this sequence.
   /////////////////////////////////////////////////////////////////
 
-  string GetName () const {
+  string GetName() const {
     char name[1024];
-    sscanf (header.c_str(), "%s", name);
+    sscanf(header.c_str(), "%s", name);
     return string(name);
   }
 
@@ -161,9 +176,9 @@ class Sequence {
   // Return the iterator to data associated with this sequence.
   /////////////////////////////////////////////////////////////////
 
-  SafeVector<char>::iterator GetDataPtr(){
-    assert (isValid);
-    assert (data);
+  SafeVector<char>::iterator GetDataPtr() {
+    assert(isValid);
+    assert(data);
     return data->begin();
   }
 
@@ -174,10 +189,10 @@ class Sequence {
   // data is stored with one-based indexing.
   /////////////////////////////////////////////////////////////////
 
-  char GetPosition (int i) const {
-    assert (isValid);
-    assert (data);
-    assert (i >= 1 && i <= length);
+  char GetPosition(int i) const {
+    assert(isValid);
+    assert(data);
+    assert(i >= 1 && i <= length);
     return (*data)[i];
   }
 
@@ -187,8 +202,8 @@ class Sequence {
   // Sets the sequence label to i.
   /////////////////////////////////////////////////////////////////
 
-  void SetLabel (int i){
-    assert (isValid);
+  void SetLabel(int i) {
+    assert(isValid);
     sequenceLabel = i;
     inputLabel = i;
   }
@@ -199,8 +214,8 @@ class Sequence {
   // Sets the sequence sorting label to i.
   /////////////////////////////////////////////////////////////////
 
-  void SetSortLabel (int i){
-    assert (isValid);
+  void SetSortLabel(int i) {
+    assert(isValid);
     sequenceLabel = i;
   }
 
@@ -210,8 +225,8 @@ class Sequence {
   // Retrieves the input label.
   /////////////////////////////////////////////////////////////////
 
-  int GetLabel () const {
-    assert (isValid);
+  int GetLabel() const {
+    assert(isValid);
     return inputLabel;
   }
 
@@ -221,8 +236,8 @@ class Sequence {
   // Retrieves the sorting label.
   /////////////////////////////////////////////////////////////////
 
-  int GetSortLabel () const {
-    assert (isValid);
+  int GetSortLabel() const {
+    assert(isValid);
     return sequenceLabel;
   }
 
@@ -232,9 +247,7 @@ class Sequence {
   // Checks to see if the sequence successfully loaded.
   /////////////////////////////////////////////////////////////////
 
-  bool Fail () const {
-    return !isValid;
-  }
+  bool Fail() const { return !isValid; }
 
   /////////////////////////////////////////////////////////////////
   // Sequence::Length()
@@ -242,9 +255,9 @@ class Sequence {
   // Returns the length of the sequence.
   /////////////////////////////////////////////////////////////////
 
-  int GetLength () const {
-    assert (isValid);
-    assert (data);
+  int GetLength() const {
+    assert(isValid);
+    assert(data);
     return length;
   }
 
@@ -257,10 +270,10 @@ class Sequence {
   // ">S###" is printed where ### represents the sequence label.
   /////////////////////////////////////////////////////////////////
 
-  void WriteMFA (ostream &outfile, int numColumns, bool useIndex = false) const {
-    assert (isValid);
-    assert (data);
-    assert (!outfile.fail());
+  void WriteMFA(ostream &outfile, int numColumns, bool useIndex = false) const {
+    assert(isValid);
+    assert(data);
+    assert(!outfile.fail());
 
     // print out heading
     if (useIndex)
@@ -270,11 +283,13 @@ class Sequence {
 
     // print out character data
     int ct = 1;
-    for (; ct <= length; ct++){
+    for (; ct <= length; ct++) {
       outfile << (*data)[ct];
-      if (ct % numColumns == 0) outfile << endl;
+      if (ct % numColumns == 0)
+        outfile << endl;
     }
-    if ((ct-1) % numColumns != 0) outfile << endl;
+    if ((ct - 1) % numColumns != 0)
+      outfile << endl;
   }
 
   /////////////////////////////////////////////////////////////////
@@ -283,13 +298,14 @@ class Sequence {
   // Returns a new deep copy of the seqeuence.
   /////////////////////////////////////////////////////////////////
 
-  Sequence *Clone () const {
+  Sequence *Clone() const {
     Sequence *ret = new Sequence();
-    assert (ret);
+    assert(ret);
 
     ret->isValid = isValid;
     ret->header = header;
-    ret->data = new SafeVector<char>; assert (ret->data);
+    ret->data = new SafeVector<char>;
+    assert(ret->data);
     *(ret->data) = *data;
     ret->length = length;
     ret->sequenceLabel = sequenceLabel;
@@ -305,20 +321,21 @@ class Sequence {
   // characters from the current seuquence.
   /////////////////////////////////////////////////////////////////
 
-  Sequence *GetRange (int start, int end) const {
+  Sequence *GetRange(int start, int end) const {
     Sequence *ret = new Sequence();
-    assert (ret);
+    assert(ret);
 
-    assert (start >= 1 && start <= length);
-    assert (end >= 1 && end <= length);
-    assert (start <= end);
+    assert(start >= 1 && start <= length);
+    assert(end >= 1 && end <= length);
+    assert(start <= end);
 
     ret->isValid = isValid;
     ret->header = header;
-    ret->data = new SafeVector<char>; assert (ret->data);
-    ret->data->push_back ('@');
+    ret->data = new SafeVector<char>;
+    assert(ret->data);
+    ret->data->push_back('@');
     for (int i = start; i <= end; i++)
-      ret->data->push_back ((*data)[i]);
+      ret->data->push_back((*data)[i]);
     ret->length = end - start + 1;
     ret->sequenceLabel = sequenceLabel;
     ret->inputLabel = inputLabel;
@@ -340,26 +357,27 @@ class Sequence {
   //                    (XXXBBYYYBBYYXX)
   /////////////////////////////////////////////////////////////////
 
-  Sequence *AddGaps (SafeVector<char> *alignment, char id){
+  Sequence *AddGaps(SafeVector<char> *alignment, char id) {
     Sequence *ret = new Sequence();
-    assert (ret);
+    assert(ret);
 
     ret->isValid = isValid;
     ret->header = header;
-    ret->data = new SafeVector<char>; assert (ret->data);
-    ret->length = (int) alignment->size();
+    ret->data = new SafeVector<char>;
+    assert(ret->data);
+    ret->length = (int)alignment->size();
     ret->sequenceLabel = sequenceLabel;
     ret->inputLabel = inputLabel;
-    ret->data->push_back ('@');
+    ret->data->push_back('@');
 
     SafeVector<char>::iterator dataIter = data->begin() + 1;
-    for (SafeVector<char>::iterator iter = alignment->begin(); iter != alignment->end(); ++iter){
-      if (*iter == 'B' || *iter == id){
-        ret->data->push_back (*dataIter);
+    for (SafeVector<char>::iterator iter = alignment->begin();
+         iter != alignment->end(); ++iter) {
+      if (*iter == 'B' || *iter == id) {
+        ret->data->push_back(*dataIter);
         ++dataIter;
-      }
-      else
-        ret->data->push_back ('-');
+      } else
+        ret->data->push_back('-');
     }
 
     return ret;
@@ -371,14 +389,14 @@ class Sequence {
   // Returns the sequence as a string with gaps removed.
   /////////////////////////////////////////////////////////////////
 
-  string GetString (){
+  string GetString() {
     string s = "";
-    for (int i = 1; i <= length; i++){
-      if ((*data)[i] != '-') s += (*data)[i];
+    for (int i = 1; i <= length; i++) {
+      if ((*data)[i] != '-')
+        s += (*data)[i];
     }
     return s;
   }
-
 
   /////////////////////////////////////////////////////////////////
   // Sequence::GetMapping()
@@ -388,10 +406,11 @@ class Sequence {
   // "ATGCC---GT--CA", the method returns {1,2,3,4,5,9,10,13,14}.
   /////////////////////////////////////////////////////////////////
 
-  SafeVector<int> *GetMapping () const {
+  SafeVector<int> *GetMapping() const {
     SafeVector<int> *ret = new SafeVector<int>(1, 0);
-    for (int i = 1; i <= length; i++){
-      if ((*data)[i] != '-') ret->push_back (i);
+    for (int i = 1; i <= length; i++) {
+      if ((*data)[i] != '-')
+        ret->push_back(i);
     }
     return ret;
   }
@@ -403,12 +422,12 @@ class Sequence {
   // all positions with score < cutoff to lower case.
   /////////////////////////////////////////////////////////////////
 
-  void Highlight (const SafeVector<float> &scores, const float cutoff){
-    for (int i = 1; i <= length; i++){
-      if (scores[i-1] >= cutoff)
-        (*data)[i] = toupper ((*data)[i]);
+  void Highlight(const SafeVector<float> &scores, const float cutoff) {
+    for (int i = 1; i <= length; i++) {
+      if (scores[i - 1] >= cutoff)
+        (*data)[i] = toupper((*data)[i]);
       else
-        (*data)[i] = tolower ((*data)[i]);
+        (*data)[i] = tolower((*data)[i]);
     }
   }
 };
