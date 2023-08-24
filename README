@@ -111,3 +111,7 @@ Version History
 
 1.12, 4/1/2006 (Chuong Do)
    -- Fixed GCC 4.3 compatibility problems (thanks to Martin Michlmayr and Charles Plessy)
+
+1.13, 8/24/2023 (tuncK)
+   -- Made this repository for better visibility for research and pedagogical use
+   -- Adjusted code formatting for visual clarity
