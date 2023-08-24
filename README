@@ -16,19 +16,17 @@ PROBCONS was developed by Chuong B. Do in collaboration  with
 Michael Brudno in the research group  of  Serafim  Batzoglou,
 Department of Computer Science, Stanford University.
 
-For more information on the algorithms, please see
 
-     Do, C.B., Brudno, M., and Batzoglou, S. (2004) PROBCONS:
-     Probabilistic Consistency-based  Multiple  Alignment  of
-     Amino Acid Sequences.  12th International Conference  on
-     Intelligent Systems for Molecular Biology.  In press.
+For more information on the algorithms, please see:
 
-and
+ProbCons: Probabilistic consistency-based multiple sequence alignment
+Chuong B. Do, Mahathi S.P. Mahabhashyam, Michael Brudno,
+    and Serafim Batzoglou
+Genome Res. February 2005 15: 330-340
+doi:10.1101/gr.2821705
 
-     Do, C.B., Brudno, M., and Batzoglou, S. (2004) PROBCONS:
-     Probabilistic Consistency-based  Multiple  Alignment  of
-     Amino Acid Sequences.  The 19th National  Conference  on
-     Artificial Intelligence (AAAI-04).  In press.
+https://genome.cshlp.org/content/15/2/330
+
 
 -----------------------------------------------------------------
 
